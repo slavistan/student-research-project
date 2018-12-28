@@ -1,0 +1,76 @@
+\documentclass{article}
+
+% Packages
+\usepackage[utf8]{inputenc} % Required for German umlauts
+
+\author{Stanislaw Hüll}
+\title{Student Research Project}
+\date{2018-11-11}
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+  \subsection{Compressed Sparse Row Format}
+    Consists of values array (A), column indices (JA), row pointers (IA)
+    Makes no assumptions about the matrix in contrast to other formats (DIAGONAL)
+      -> General purpose sparse matrix format
+    Good properties for mat-vec-mult (locality)
+    Compressed Sparse Column
+
+  \subsection{Structured Grid Matrices}
+    Arise as finite difference adjacency matrices from discretization of elliptic type PDE (SPARSKIT 7.1)
+      and structured mesh finite element matrices.
+    Are (locally) structured.
+
+\section{Three-fold compressed sparse row}
+  Improve upon CSR format utilizing domain knowledge about structured grid matrices.
+
+  \subsection{Data layout and storage scheme}
+    Starts out at a CSR representation. This section explains the general storage scheme. Its usage and motivation will be clarified in the next section.
+    Applies compression idea of CSR to the non-zeros' value array and column index array separately (... motivation?).
+    V stores the numerical value of each non-zero entry, VS stores an index-pointer into V to each initial element of a row's section within V.
+
+      Example: Compressed and uncompressed values (Matrix <-> Varrays)
+
+    Column index information is split into three arrays.
+    Peg-index: Column index of each row's first non-zero. (JPeg)
+    jrel: Column indices relative to their row's peg-index (:= 'index pattern') (JRel)
+    jrelstart: Index-pointer into JRel to each initial element of a row's section within JRel.
+
+      Example: Compressed and uncompressed column indices (Matrix <-> Varrays)
+
+    High-level view of the data organization:
+    (A) Data representing the matrix's non-zero elements
+      A real array V & vstart;
+
+    (B) Data representing non-zero elements' column indices
+      jrel & jrelstart & peg-index
+
+    (C) Row pointers (as in CSR) row-pointers
+
+  \subsection{Compression mechanism}
+
+  \subsection{Algorithms}
+
+    \subsubsection{Matvecmult}
+      improves locality (--> Performance)
+
+    \subsubsection{Element access A[i;j]}
+      binary lookup
+
+\section{Performance Benchmarks}
+  Measure performance in terms of (1) data compression ratio and (2) arithmetic performance (matvecmult)
+
+  \subsection{Generation of structured grid adjacency matrices as test matrices}
+
+  \subsection{Data compression}
+
+  \subsection{Arithmetic performance (matvecmult)}
+
+\section{Summary}
+  Advantages: General purpose, good performance, parallel scalability
+  Disadv: Static structure (cannot add/remove elements)
+
+\end{document}
