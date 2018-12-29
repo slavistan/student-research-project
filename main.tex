@@ -3,6 +3,35 @@
 % Packages
 \usepackage[utf8]{inputenc} % Required for German umlauts
 
+%
+% Tikz Setup
+%
+\usepackage[customcolors]{hf-tikz}
+
+\tikzset{style green/.style={
+    set fill color=green!50!lime!60,
+    set border color=white,
+  },
+  style cyan/.style={
+    set fill color=cyan!90!blue!60,
+    set border color=white,
+  },
+  style orange/.style={
+    set fill color=orange!80!red!60,
+    set border color=white,
+  },
+  hor/.style={
+    above left offset={-0.15,0.31},
+    below right offset={0.15,-0.125},
+    #1
+  },
+  ver/.style={
+    above left offset={-0.1,0.3},
+    below right offset={0.15,-0.15},
+    #1
+  }
+}
+
 \author{Stanislaw Hüll}
 \title{Student Research Project}
 \date{2018-11-11}
@@ -13,16 +42,37 @@
 \section{Introduction}
 
   \subsection{Compressed Sparse Row Format}
-    Consists of values array (A), column indices (JA), row pointers (IA)
-    Makes no assumptions about the matrix in contrast to other formats (DIAGONAL)
-      -> General purpose sparse matrix format
+    It is a widely used storage format for sparse matrices which does not make assumptions about the matrix's shape
+    or its distribution of non-zero elements in contrast to other popular sparse matrix storage formats such as the
+    the diagonal storage format or ELLPACK. It optimizes the storage requirements of general sparse matrices with
+    respect to the naive coordinate format (COO) in that each non-zero's row index is no longer explicitly stored.
+
+    The CSR format consists of three dense arrays:
+
+    The values array stores the numerical value for each non-zero entry in the matrix while their column index is stored
+    in the associated column-index array. A third array, the row-pointer array, encodes the beginning of each row's section within the
+    values and column-index arrays, i.e. it stores the offset of each row's first non-zero element into the two previous
+    arrays. Thus the CSR format optimizes the storage requirements of general sparse matrices with respect to the naive
+    coordinate format (COO) in that each-nonzero's row index is no longer explicitly stored, shrinking the size of the
+    third array from one entry per non-zero element to a single entry per row.
+
+    \input{fig/csr_example.tex}
+
+    By convention, the non-zeros are stored row-wise in ordered fashion from left to right implying that each row's
+    section within the column-index array is sorted in ascending fashion. Additionally, the row-pointer array contains
+    an additional element denoting the total number of non-zero elements in the structure. Note that sometimes a
+    different nomenclature is utilized in the existing literature, referring to the arrays as A (values), JA
+    (column-indices) and IA (row-pointers), respectively.
+
     Good properties for mat-vec-mult (locality)
+
     Compressed Sparse Column
 
   \subsection{Structured Grid Matrices}
     Arise as finite difference adjacency matrices from discretization of elliptic type PDE (SPARSKIT 7.1)
       and structured mesh finite element matrices.
     Are (locally) structured.
+    "Almost" diagonal --> DIA not the best. [Godwin2013: p9!!!]
 
 \section{Three-fold compressed sparse row}
   Improve upon CSR format utilizing domain knowledge about structured grid matrices.
@@ -43,10 +93,10 @@
 
     High-level view of the data organization:
     (A) Data representing the matrix's non-zero elements
-      A real array V & vstart;
+      A real array V  and vstart;
 
     (B) Data representing non-zero elements' column indices
-      jrel & jrelstart & peg-index
+      jrel and jrelstart and peg-index
 
     (C) Row pointers (as in CSR) row-pointers
 
