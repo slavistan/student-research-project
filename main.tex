@@ -2,9 +2,16 @@
 
 % Packages
 \usepackage[utf8]{inputenc} % Required for German umlauts
-
+% SVG
+\usepackage{svg}
+% Bib
 \usepackage[backend=biber]{biblatex}
 \addbibresource{bib/bibliography.bib}
+
+%%
+%% Custom commands
+%%
+
 
 %
 % Tikz Setup
@@ -76,6 +83,40 @@
     matrices.
 
   \subsection{Structured Grid Matrices}
+
+    Structured grid computations are ubiquitously used for physical simulations for computational fluid dynamics,
+    electrodynamics and astrophysics.  In contrast to unstructured grids the regularity inherent to structured grids
+    allows for very efficient numerical treatment, such that even in cases where sufficiently complex geometries
+    prohibit the decomposition of the target domain into a single overarching structured grid the domain is often
+    tesselated into an unstructured configuration, with the tiles being filled by independent structured grids
+    \cite{Badcock2000}.
+
+    To derive an approximate solution to a physical system's set of partial differential equations
+    the PDEs are discretized on the structured grid by approximating the differential operators by algebraic
+    expressions. A promiment example is the Cartesian finite-difference approximation of the Laplacian operator.
+    The discretization step yields a linear problem $A x = b$ in which the right-hand side $b$ depends only on the
+    boundary conditions and is thus known.
+
+    (((TODO))) The solution of this linear system by iterative means requires that, starting at an initial guess $x_0$,
+    a stencil operation is applied to each node, i.e. its new value is determined by a weighted sum of the current
+    values of its adjacent nodes. Which nodes are considered adjacent depends on the approximation of the differential
+    operators, but in general the pattern is symmetric with respect to the node in question while the individual weights
+    of the weighted sum might change from node to node. The stencil corresponding to the finite-difference Laplacian is
+    the symmetric 5-point or 7-point stencil for 2D or 3D grids, respectively.
+
+    Evidently, the stencil operation across the grid is equivalent to a multiplication with the grid's adjacency matrix,
+    whose non-zero entries encode the adjacency relation of the stencil across the whole matrix and whose numeric values
+    are the weighted sum's weights. These adjacency matrices have a very characteristic structure, whose exact shape
+    depends on the type of boundary condition underlying the physical system's PDEs and on the stencil's geometry. In
+    general, they are symmetric and consist of as many diagonals as there are nodes in the stencil. The diagonals are almost
+    completely dense with exceptions arising at nodes corresponding to the grid's boundaries, i.e. its corners and
+    sides, where the adjacency pattern is disturbed by missing nodes as in the case of Dirichlet boundary conditions.
+    Adjacency matrices are symmetric and have one row and column per node in the grid.
+
+    \input{fig/stencil_adj_mat.tex}
+
+    TODO: Bisher nur finite difference, was ist mit FEM?
+
     Arise as finite difference adjacency matrices from discretization of elliptic type PDE (SPARSKIT 7.1)
       and structured mesh finite element matrices.
     Are (locally) structured.
@@ -83,7 +124,7 @@
 
 \section{Three-fold compressed sparse row}
   Improve upon CSR format utilizing domain knowledge about structured grid matrices.
-
+  Stencil operation is applied multiple times during the solution, thus matvecmult speed is critical.
   \subsection{Data layout and storage scheme}
     Starts out at a CSR representation. This section explains the general storage scheme. Its usage and motivation will be clarified in the next section.
     Applies compression idea of CSR to the non-zeros' value array and column index array separately (... motivation?).

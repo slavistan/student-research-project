@@ -2,6 +2,7 @@
 *.log
 *.aux
 *.swp
+*.swo
 *.bbl
 *.bcf
 *.blg
