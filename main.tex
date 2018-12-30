@@ -53,11 +53,11 @@
     The CSR format consists of three dense arrays:
 
     The values array stores the numerical value for each non-zero entry in the matrix while their column index is stored
-    in the associated column-index array. A third array, the row-pointer array, encodes the beginning of each row's section within the
-    values and column-index arrays, i.e. it stores the offset of each row's first non-zero element into the two previous
-    arrays. Thus the CSR format optimizes the storage requirements of general sparse matrices with respect to the naive
-    coordinate format (COO) in that each-nonzero's row index is no longer explicitly stored, shrinking the size of the
-    third array from one entry per non-zero element to a single entry per row.
+    in the associated column-index array. A third array, the row-pointer array, encodes the beginning of each row's
+    section within the values and column-index arrays, i.e. it stores the offset of each row's first non-zero element
+    into the two previous arrays. Thus the CSR format optimizes the storage requirements of general sparse matrices with
+    respect to the naive coordinate format (COO) in that each-nonzero's row index is no longer explicitly stored,
+    shrinking the size of the third array from one entry per non-zero element to a single entry per row.
 
     \input{fig/csr_example.tex}
 
@@ -65,11 +65,15 @@
     section within the column-index array is sorted in ascending fashion. Additionally, the row-pointer array contains
     an additional element denoting the total number of non-zero elements in the structure. Note that sometimes a
     different nomenclature is utilized in the existing literature, referring to the arrays as A (values), JA
-    (column-indices) and IA (row-pointers), respectively.
+    (column-indices) and IA (row-pointers), respectively \cite{sparskit}.
 
-    Good properties for mat-vec-mult (locality)
-
-    Compressed Sparse Column
+    The CSR format's salient feature is its direct access to a row's non-zero elements' values and column indices making
+    it particularly well suited for matrix-vector-multiplication utilizing a conventional row-by-column computation
+    scheme. Aside of this feature storing the non-zero elements row by row as opposed to column by column is, to a
+    certain degree, arbitrary and thus exist numerical libraries and toolkits such as the Eigen C++ library
+    \cite{eigen:website} or the Harwell-Boeing sparse matrix collection \cite{harwell-boeing} which utilize the CSR
+    format's conjugate, the compressed sparse column format (CSC), as their default means of representing sparse
+    matrices.
 
   \subsection{Structured Grid Matrices}
     Arise as finite difference adjacency matrices from discretization of elliptic type PDE (SPARSKIT 7.1)
@@ -111,8 +115,7 @@
       improves locality (--> Performance)
 
     \subsubsection{Element access A[i;j]}
-      binary lookup. As we're having fun with \textcite{test}, lets do it.
-
+      binary lookup
 \section{Performance Benchmarks}
   Measure performance in terms of (1) data compression ratio and (2) arithmetic performance (matvecmult)
 
