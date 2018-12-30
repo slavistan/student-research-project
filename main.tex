@@ -3,6 +3,9 @@
 % Packages
 \usepackage[utf8]{inputenc} % Required for German umlauts
 
+\usepackage[backend=biber]{biblatex}
+\addbibresource{bib/bibliography.bib}
+
 %
 % Tikz Setup
 %
@@ -108,7 +111,7 @@
       improves locality (--> Performance)
 
     \subsubsection{Element access A[i;j]}
-      binary lookup
+      binary lookup. As we're having fun with \textcite{test}, lets do it.
 
 \section{Performance Benchmarks}
   Measure performance in terms of (1) data compression ratio and (2) arithmetic performance (matvecmult)
@@ -123,4 +126,5 @@
   Advantages: General purpose, good performance, parallel scalability
   Disadv: Static structure (cannot add/remove elements)
 
+\printbibliography
 \end{document}
