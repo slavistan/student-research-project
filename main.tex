@@ -104,14 +104,15 @@
     of the weighted sum might change from node to node. The stencil corresponding to the finite-difference Laplacian is
     the symmetric 5-point or 7-point stencil for 2D or 3D grids, respectively.
 
-    Evidently, the stencil operation across the grid is equivalent to a multiplication with the grid's adjacency matrix,
-    whose non-zero entries encode the adjacency relation of the stencil across the whole matrix and whose numeric values
-    are the weighted sum's weights. These adjacency matrices have a very characteristic structure, whose exact shape
-    depends on the type of boundary condition underlying the physical system's PDEs and on the stencil's geometry. In
-    general, they are symmetric and consist of as many diagonals as there are nodes in the stencil. The diagonals are almost
-    completely dense with exceptions arising at nodes corresponding to the grid's boundaries, i.e. its corners and
-    sides, where the adjacency pattern is disturbed by missing nodes as in the case of Dirichlet boundary conditions.
-    Adjacency matrices are symmetric and have one row and column per node in the grid.
+    The stencil operation across the grid can be expressed in terms of a matrix-vector multiplication, where
+    the vector contains the grid nodes' function values and the matrix is the grid's adjacency matrix, whose non-zero
+    entries encode the adjacency relation of the stencil across the whole matrix and whose numeric values are the
+    weighted sum's weights. These adjacency matrices have a very characteristic structure, whose exact shape depends on
+    the type of boundary condition underlying the physical system's PDEs and on the stencil's geometry. In general, they
+    are symmetric and consist of as many diagonals as there are nodes in the stencil. The diagonals are almost fully
+    dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the
+    adjacency pattern is disturbed by missing nodes as in the case of Dirichlet boundary conditions. Adjacency matrices
+    are symmetric and have one row and column per node in the grid.
 
     \input{fig/stencil_adj_mat.tex}
 
@@ -123,9 +124,44 @@
     "Almost" diagonal --> DIA not the best. [Godwin2013: p9!!!]
 
 \section{Three-fold compressed sparse row}
-  Improve upon CSR format utilizing domain knowledge about structured grid matrices.
-  Stencil operation is applied multiple times during the solution, thus matvecmult speed is critical.
+
+  Evidently, representing a structured grid's adjacency matrix using the regular CSR format is highly suboptimal, as it
+  has no means of capturing the obvious repetetiveness of the structure. While at first glance the diagonal format seems
+  to be an appealing choice for the types of matrices introduced in the previous section, real-life problems produce
+  matrices which are only locally structured, i.e. they contain multiple fully structured sections corresponding to the
+  multiple structured grid regions of the overall heterogeneous domain mentioned above, which need not be aligned in
+  a way to produce a diagonal structure at all. Thus a more flexible approach is taken adapting the CSR format.
+
+  Additionally, utilizing a CSR-like format keeps open the possibility to eventually tackle adjacency matrices of
+  unstructured grids.
+
+  This section introduces the data layout and storage scheme of the three-fold compressed sparse row format which allows
+  for the utilization of certain compression mechanisms explained thereafter. Finally, the algorithms required to
+  perform common arithmetic operations are presented.
+
   \subsection{Data layout and storage scheme}
+
+    The basic motive of this work is to leverage the regularity inherent in structured grid adjacency matrices. The vast
+    majority of the matrix's rows share a common column index pattern. Their non-zero elements occur at fixed offsets
+    with respect to the row's first non-zero element's position.
+
+      ((( TODO: Bild )))
+
+    It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the
+    non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values
+    need not be similar to each other at all and, possibly, even vice versa. To prevent that a lack of common regularity
+    impedes optimizing the layout of one or the other it is hence necessary to decouple the representation of a row's
+    column index positions from the representation of its numerical values. The C3SR format accounts for this
+    circumstance and maintains separate data structures for the patterns and values.
+
+    The values are represented ... //TODO: Hier weitermachen x)
+
+
+
+      - "Note that after compression this information (size of a rows section in 'v' from 'vstart' is lost)"
+         > "row-sz-scan" required.
+
+    Improve upon CSR format utilizing domain knowledge about structured grid matrices.
     Starts out at a CSR representation. This section explains the general storage scheme. Its usage and motivation will be clarified in the next section.
     Applies compression idea of CSR to the non-zeros' value array and column index array separately (... motivation?).
     V stores the numerical value of each non-zero entry, VS stores an index-pointer into V to each initial element of a row's section within V.
@@ -152,7 +188,10 @@
 
   \subsection{Algorithms}
 
+    Stencil operation is applied multiple times during the solution, thus matvecmult speed is critical.
+
     \subsubsection{Matvecmult}
+
       improves locality (--> Performance)
 
     \subsubsection{Element access A[i;j]}
