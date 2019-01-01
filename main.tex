@@ -154,9 +154,20 @@
     column index positions from the representation of its numerical values. The C3SR format accounts for this
     circumstance and maintains separate data structures for the patterns and values.
 
-    The values are represented ... //TODO: Hier weitermachen x)
+    The values are represented by two arrays which utilize the CSR's basic idea of storing all relevant data in a
+    contiguous array (V) and accessing the data by an index pointer into the array. The index pointers are stored in a
+    separate array (VS).
 
+      ((( TODO: Bild. Einfache matrix mit values )))
 
+    The column indices are stored abiding by the same principle with the additional detail that each row's column
+    indices are decomposed into the absolute index of the row's first non-zero element, which is referred to as the
+    row's 'peg', and the relative offsets of the remaining non-zeros' column indices with respect to the peg index.
+    This introduces a degree of freedom whose usefulness will become evident in the context of compression. Thus the
+    column indices are encoded into an array storing the patterns (J), another array storing the peg index (JP)
+    and an index pointer array (JS) into J in the same that VS relates to V.
+
+      ((( TODO: Bild )))
 
       - "Note that after compression this information (size of a rows section in 'v' from 'vstart' is lost)"
          > "row-sz-scan" required.
