@@ -232,11 +232,11 @@
     The matrix's non-zero entries' numeric values are obtained from evaluating a sinusoidal function at the geometric
     center point $\vec{r} = (x, y, z)$ inbetween the two nodes in question whereby each Cartesian component $x, y, z$ is
     scaled by its coordinate's span $X, Y, Z$. An additional offset serves to prevent that entries in the matrix
-    correponding to adjacent nodes evaluate to 0. The function utilized is
+    correponding to adjacent nodes according to the stencil incidentally evaluate to 0. The function utilized is
     $$W(x,y,z; n_x, n_y, n_z) = 2 + \sum \limits_{d \in \{x,y,z\}} \sin{\frac{d}{d_{\text{max}}} \cdot \pi \cdot n_d} $$
     where $n_x, n_y, n_z$ are periodicity parameters for each dimensions.
 
-    Note that $n_d = 0 \Leftrightarrow \partial_d W(\vec{r}) \equiv 0$ introducing a periodicity in the corresponding
+    Note that $n_d = 0 \Leftrightarrow \partial_d W(\vec{r}) \equiv 0$, introducing a periodicity in the corresponding
     dimension $d$. This feature is utilized to create periodicity in the matrix's values.
 
     (((Example of matrix + Computation of nonzeros)))
