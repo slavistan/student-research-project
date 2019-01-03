@@ -197,8 +197,9 @@
     the storage requirement of a C3SR object in memory the best advice would be to exploit duplication in the matrix as
     much as possible. However, efficient arithmetic requires considerations going beyond maximum compression such as
     parallel performance and parallel scalability implying that the implementation must heed the principles of
-    data locality and independence of tasks in the control flow of the algorithm. Such details are delayed until the
-    pertinent algorithms are discussed in detail.
+    data locality and independence of tasks in the control flow of the algorithm.
+
+    (((TODO: Partitioning during compression + stable- and non-stable values compression)))
 
     Note that this section avoids reasoning about low-level details for the sake of clarity. Tweaks such as the omission
     of each pattern's first value, which is always zero or mapping two partially matching rows' sections within J onto
@@ -215,10 +216,30 @@
 
     \subsubsection{Element access A[i;j]}
       binary lookup
+
 \section{Performance Benchmarks}
   Measure performance in terms of (1) data compression ratio and (2) arithmetic performance (matvecmult)
 
   \subsection{Generation of structured grid adjacency matrices as test matrices}
+
+    For the purpose of gauging the performance test matrices are created in CSR format which are then converted to C3SR
+    format and compressed. These matrices resemble the structure of the structured grid matrices introduced above and
+    are created by iterating through a 3D grid of fixed integral dimensions X, Y, Z and applying a given stencil
+    which encodes the desired adjacency relationship. Nodes requested by the stencil but missing from the grid, i.e.
+    nodes on the grid's outer borders are omitted, i.e. their corresponding entries in the adjacency matrix carry a zero
+    which is equivalent to Dirichlet-type boundary conditions.
+
+    The matrix's non-zero entries' numeric values are obtained from evaluating a sinusoidal function at the geometric
+    center point $\vec{r} = (x, y, z)$ inbetween the two nodes in question whereby each Cartesian component $x, y, z$ is
+    scaled by its coordinate's span $X, Y, Z$. An additional offset serves to prevent that entries in the matrix
+    correponding to adjacent nodes evaluate to 0. The function utilized is
+    $$W(x,y,z; n_x, n_y, n_z) = 2 + \sum \limits_{d \in \{x,y,z\}} \sin{\frac{d}{d_{\text{max}}} \cdot \pi \cdot n_d} $$
+    where $n_x, n_y, n_z$ are periodicity parameters for each dimensions.
+
+    Note that $n_d = 0 \Leftrightarrow \partial_d W(\vec{r}) \equiv 0$ introducing a periodicity in the corresponding
+    dimension $d$. This feature is utilized to create periodicity in the matrix's values.
+
+    (((Example of matrix + Computation of nonzeros)))
 
   \subsection{Data compression}
 
