@@ -12,7 +12,6 @@
 %% Custom commands
 %%
 
-
 %
 % Tikz Setup
 %
@@ -154,9 +153,8 @@
     column index positions from the representation of its numerical values. The C3SR format accounts for this
     circumstance and maintains separate data structures for the patterns and values.
 
-    The values are represented by two arrays which utilize the CSR's basic idea of storing all relevant data in a
-    contiguous array (V) and accessing the data by an index pointer into the array. The index pointers are stored in a
-    separate array (VS).
+    The values are represented by two arrays which utilize the CSR's basic idea of storing all relevant data in an
+    array (V) and managing a separate start-index array (VS) pointing each row's section's first element.
 
       ((( TODO: Bild. Einfache matrix mit values )))
 
@@ -165,37 +163,47 @@
     row's 'peg', and the relative offsets of the remaining non-zeros' column indices with respect to the peg index.
     This introduces a degree of freedom whose usefulness will become evident in the context of compression. Thus the
     column indices are encoded into an array storing the patterns (J), another array storing the peg index (JP)
-    and an index pointer array (JS) into J in the same that VS relates to V.
+    and an index pointer array (JS) into J in the same way that VS relates to V.
 
       ((( TODO: Bild )))
 
-      - "Note that after compression this information (size of a rows section in 'v' from 'vstart' is lost)"
-         > "row-sz-scan" required.
+    A sixth and final array (RS) is used to store the number of non-zeros in each row of the matrix in order to know the
+    size of the row's section within the pattern array and the values array. While the respective start index-pointer
+    arrays store the section's first element's index they cannot encode the size of the section. Prior to compressing
+    the size of a row can indeed be retrieved from the corresponding start index-pointer array in the same way the CSR
+    format's row size may be retrieved from the row-pointer array by taking the difference between the row's entry and
+    its successor. However, this requires that the row's sections are stored contiguously in the arrays and this
+    property is lost during compression as will be explained in the next section.
 
-    Improve upon CSR format utilizing domain knowledge about structured grid matrices.
-    Starts out at a CSR representation. This section explains the general storage scheme. Its usage and motivation will be clarified in the next section.
-    Applies compression idea of CSR to the non-zeros' value array and column index array separately (... motivation?).
-    V stores the numerical value of each non-zero entry, VS stores an index-pointer into V to each initial element of a row's section within V.
-
-      Example: Compressed and uncompressed values (Matrix <-> Varrays)
-
-    Column index information is split into three arrays.
-    Peg-index: Column index of each row's first non-zero. (JPeg)
-    jrel: Column indices relative to their row's peg-index (:= 'index pattern') (JRel)
-    jrelstart: Index-pointer into JRel to each initial element of a row's section within JRel.
-
-      Example: Compressed and uncompressed column indices (Matrix <-> Varrays)
-
-    High-level view of the data organization:
-    (A) Data representing the matrix's non-zero elements
-      A real array V  and vstart;
-
-    (B) Data representing non-zero elements' column indices
-      jrel and jrelstart and peg-index
-
-    (C) Row pointers (as in CSR) row-pointers
+    Summarizing the data organization of the C3SR format:
+    \begin{itemize}
+      \item Data representing the matrix's non-zero elements: V, VS
+      \item Data representing non-zero elements' column indices: J, JP, JS
+      \item Array containing information about the row sizes: RSS
+    \end{itemize}
 
   \subsection{Compression mechanism}
+
+    Using this storage scheme the column index information may be compressed by removing duplicate patterns from J and
+    updating the start-index pointers JS of such duplicate rows to point the start of the corresponding unique section
+    within J.
+
+      ((( TODO: Bild )))
+
+    The information about the non-zeros' values can be compressed in precicely the same way: Duplicate sections within V
+    corresponding to different rows with identical values are removed and the corresponding start pointers are updated.
+
+    In theory, the compression of patterns and values are orthogonal operations and if the overall goal were to minimize
+    the storage requirement of a C3SR object in memory the best advice would be to exploit duplication in the matrix as
+    much as possible. However, efficient arithmetic requires considerations going beyond maximum compression such as
+    parallel performance and parallel scalability implying that the implementation must heed the principles of
+    data locality and independence of tasks in the control flow of the algorithm. Such details are delayed until the
+    pertinent algorithms are discussed in detail.
+
+    Note that this section avoids reasoning about low-level details for the sake of clarity. Tweaks such as the omission
+    of each pattern's first value, which is always zero or mapping two partially matching rows' sections within J onto
+    each other for a little gain in storage space optimization are considered implementation details are are not discussed
+    here.
 
   \subsection{Algorithms}
 
