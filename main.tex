@@ -2,6 +2,7 @@
 
 % Packages
 \usepackage[utf8]{inputenc} % Required for German umlauts
+\usepackage{amsmath} % Required for German umlauts
 % SVG
 \usepackage{svg}
 % Bib
@@ -149,9 +150,12 @@
     It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the
     non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values
     need not be similar to each other at all and, possibly, even vice versa. To prevent that a lack of common regularity
-    impedes optimizing the layout of one or the other it is hence necessary to decouple the representation of a row's
-    column index positions from the representation of its numerical values. The C3SR format accounts for this
+    impedes optimizing the storage requirements of one or the other it is hence necessary to decouple the representation
+    of a row's column index positions from the representation of its numerical values. The C3SR format accounts for this
     circumstance and maintains separate data structures for the patterns and values.
+
+    //TODO Erst colindices einführen, dann values und darauf hinweise, dass VS redundant ist, falls keine values
+    compression erwünscht ist.
 
     The values are represented by two arrays which utilize the CSR's basic idea of storing all relevant data in an
     array (V) and managing a separate start-index array (VS) pointing each row's section's first element.
@@ -167,13 +171,14 @@
 
       ((( TODO: Bild )))
 
-    A sixth and final array (RS) is used to store the number of non-zeros in each row of the matrix in order to know the
-    size of the row's section within the pattern array and the values array. While the respective start index-pointer
-    arrays store the section's first element's index they cannot encode the size of the section. Prior to compressing
-    the size of a row can indeed be retrieved from the corresponding start index-pointer array in the same way the CSR
-    format's row size may be retrieved from the row-pointer array by taking the difference between the row's entry and
-    its successor. However, this requires that the row's sections are stored contiguously in the arrays and this
-    property is lost during compression as will be explained in the next section.
+    A sixth and final array (RS) is used to encode the number of non-zeros in each row of the matrix in order to know
+    the size of the row's section within the pattern array and the values array. The RS array is an immediate copy of
+    the CSR format's row-pointer array.  While the respective start index-pointer arrays store the section's first
+    element's index they cannot encode the size of the section. Prior to compressing the size of a row can indeed be
+    retrieved from the corresponding start index-pointer array in the same way the CSR format's row size may be
+    retrieved from the row-pointer array by taking the difference between the row's entry and its successor, however,
+    this requires that the row's sections are stored contiguously in the arrays and this property is lost during
+    compression as will be explained in the next section.
 
     Summarizing the data organization of the C3SR format:
     \begin{itemize}
@@ -243,11 +248,25 @@
 
   \subsection{Data compression}
 
+    \begin{figure}[!h]
+      \centering
+      \includegraphics[width=0.8\textwidth]{fig/structural-compression}
+      \caption*{\small AAARSSS
+                This plot compares the number of array elements required in the C3SR format to store a fully structured matrix's column index information (green curve) against the baseline size of the equivalent CSR format matrix's column index array (red curve) depending on the partition size utilized for the structural compression. The C3SR format's recorded number of elements comprises the sum of the sizes of the J, JP and JS arrays, respectively. The RS array and the CSR format's row-pointer array are left out of the consideration as they are identical in size. The underlying $50 \times 50 \times 50$ grid contains $125000$ nodes to which the symmetric 7-pt stencil is applied. The numerical values of the matrix are of no concern for its structure.
+
+                The C3SR format's diminishing storage requirements are caused solely by J (blue curve) as JS and JP are constant in size, each containing $125000$ elements, one per matrix row. The size of J exhibits an inverse linear relationship to the partition size, as can be inferred from the straight line's gradient in the double logarithmic plot. This is due to the fact that large grids mainly consist of inner nodes whose corresponding rows in the matrix share the same pattern. Hence the overwhelming majority of partitions' column index information will condense to 7 elements within J (and one element per row for JS and JP) irrespective of the partition size with exceptions arising only around the few border nodes and their corresponding rows.
+
+                The minimum size of J is determined by the matrix's unique patterns which correspond to 8 corner nodes a 4 adjacent nodes, 12 edge nodes a 5 adjacency nodes, 6 face nodes a 6 adjaceny nodes and the inner nodes with the full 7 adjacency nodes totalling $135$ entries.
+                }
+    \end{figure}
+
   \subsection{Arithmetic performance (matvecmult)}
 
 \section{Summary}
   Advantages: General purpose, good performance, parallel scalability
   Disadv: Static structure (cannot add/remove elements)
 
+OVERALLTODO:
+  TODO: ... will be referred to as 'structured matrix' ==== adjacency matrix of structured grids assuming xyz-indexing
 \printbibliography
 \end{document}
