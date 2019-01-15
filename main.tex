@@ -2,12 +2,16 @@
 
 % Packages
 \usepackage[utf8]{inputenc} % Required for German umlauts
-\usepackage{amsmath} % Required for German umlauts
+\usepackage{amsmath}
 % SVG
 \usepackage{svg}
 % Bib
 \usepackage[backend=biber]{biblatex}
 \addbibresource{bib/bibliography.bib}
+% Subimages
+\usepackage{subfig}
+% Geometry
+\usepackage[left=2cm, right=2cm, top=2cm]{geometry}
 
 %%
 %% Custom commands
@@ -250,35 +254,57 @@
 
   \subsection{Data compression}
 
-    \begin{figure}[!h]
+    This plot compares the number of array elements required in the C3SR format to store a fully structured matrix's column index information (green curve) against the baseline size of the equivalent CSR format matrix's column index array (red curve) depending on the partition size utilized for the structural compression. The C3SR format's recorded number of elements comprises the sum of the sizes of the J, JP and JS arrays, respectively. The RS array and the CSR format's row-pointer array are left out of the consideration as they are identical in size. The underlying $50 \times 50 \times 50$ grid contains $125000$ nodes to which the symmetric 7-pt stencil is applied. The numerical values of the matrix are of no concern for its structure.
+
+    The C3SR format's diminishing storage requirements are caused solely by J (blue curve) as JS and
+    JP are constant in size, each containing $125000$ elements, one per matrix row. The size of J
+    exhibits an inverse linear relationship to the partition size, as can be inferred from the
+    straight line's gradient in the double logarithmic plot. This is due to the fact that large
+    grids mainly consist of inner nodes whose corresponding rows in the matrix all share the same pattern. Hence the overwhelming majority of partitions' column index information will condense to 7 elements within J (and one element per row for JS and JP) irrespective of the partition size with exceptions arising only around the few border nodes and their corresponding rows.
+
+    The minimum size of J is determined by the matrix's unique patterns which correspond to 8 corner
+    nodes a 4 adjacent nodes, 12 edge nodes a 5 adjacency nodes, 6 face nodes a 6 adjaceny nodes and
+    the inner nodes with the full 7 adjacency nodes totalling $135$ entries. (TODO: Tikz 3d-draw
+    representative of all nodes creating unique patterns).
+
+    TODO: Ausreißer erklären.
+    \begin{figure}[ht]
       \centering
       \includegraphics[width=0.8\textwidth]{fig/structural-compression}
-      \caption*{\small AAARSSS
-                This plot compares the number of array elements required in the C3SR format to store a fully structured matrix's column index information (green curve) against the baseline size of the equivalent CSR format matrix's column index array (red curve) depending on the partition size utilized for the structural compression. The C3SR format's recorded number of elements comprises the sum of the sizes of the J, JP and JS arrays, respectively. The RS array and the CSR format's row-pointer array are left out of the consideration as they are identical in size. The underlying $50 \times 50 \times 50$ grid contains $125000$ nodes to which the symmetric 7-pt stencil is applied. The numerical values of the matrix are of no concern for its structure.
-
-                The C3SR format's diminishing storage requirements are caused solely by J (blue curve) as JS and
-                JP are constant in size, each containing $125000$ elements, one per matrix row. The size of J
-                exhibits an inverse linear relationship to the partition size, as can be inferred from the
-                straight line's gradient in the double logarithmic plot. This is due to the fact that large
-                grids mainly consist of inner nodes whose corresponding rows in the matrix all share the same pattern. Hence the overwhelming majority of partitions' column index information will condense to 7 elements within J (and one element per row for JS and JP) irrespective of the partition size with exceptions arising only around the few border nodes and their corresponding rows.
-
-                The minimum size of J is determined by the matrix's unique patterns which correspond to 8 corner
-                nodes a 4 adjacent nodes, 12 edge nodes a 5 adjacency nodes, 6 face nodes a 6 adjaceny nodes and
-                the inner nodes with the full 7 adjacency nodes totalling $135$ entries. (TODO: Tikz 3d-draw
-                representative of all nodes creating unique patterns).
-
-                TODO: Ausreißer erklären.
-                }
+      \caption*{TODO}
     \end{figure}
 
     //TODO: Structural compression mit interleaved matrices
 
-  \subsection{Arithmetic performance (matvecmult)}
-    \begin{figure}[h]
+  \subsection{Arithmetic Performance of Matrix-Vector Multiplication}
+
+    This plot compares the number of array elements required in the C3SR format to store a fully structured matrix's column index information (green curve) against the baseline size of the equivalent CSR format matrix's column index array (red curve) depending on the partition size utilized for the structural compression. The C3SR format's recorded number of elements comprises the sum of the sizes of the J, JP and JS arrays, respectively. The RS array and the CSR format's row-pointer array are left out of the consideration as they are identical in size. The underlying $50 \times 50 \times 50$ grid contains $125000$ nodes to which the symmetric 7-pt stencil is applied. The numerical values of the matrix are of no concern for its structure.
+
+    The C3SR format's diminishing storage requirements are caused solely by J (blue curve) as JS and
+    JP are constant in size, each containing $125000$ elements, one per matrix row. The size of J
+    exhibits an inverse linear relationship to the partition size, as can be inferred from the
+    straight line's gradient in the double logarithmic plot. This is due to the fact that large
+    grids mainly consist of inner nodes whose corresponding rows in the matrix all share the same pattern. Hence the overwhelming majority of partitions' column index information will condense to 7 elements within J (and one element per row for JS and JP) irrespective of the partition size with exceptions arising only around the few border nodes and their corresponding rows.
+
+    The minimum size of J is determined by the matrix's unique patterns which correspond to 8 corner
+    nodes a 4 adjacent nodes, 12 edge nodes a 5 adjacency nodes, 6 face nodes a 6 adjaceny nodes and
+    the inner nodes with the full 7 adjacency nodes totalling $135$ entries. (TODO: Tikz 3d-draw
+    representative of all nodes creating unique patterns).
+
+    \begin{figure}[!ht]
       \centering
-      \includegraphics[width=0.8\textwidth]{assets/bench-matvecmult-structured-duration}
-      \caption{Duration}
+      \subfloat{
+        \centering
+        \includegraphics[width=0.9\textwidth]{assets/bench-matvecmult-structured-duration}
+        \label{fig:bench-matvecmult-structured-duration}}\par
+      \subfloat{
+        \centering
+        \includegraphics[width=0.9\textwidth]{assets/bench-matvecmult-structured-object-size}
+        \label{fig:bench-matvecmult-structured-object-size}}
+      \caption{asdaf}
     \end{figure}
+
+    // TODO: Linear Minorbreaks in Plots
 \section{Summary}
   Advantages: General purpose, good performance, parallel scalability
   Disadv: Static structure (cannot add/remove elements)
