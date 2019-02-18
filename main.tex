@@ -16,6 +16,7 @@
 %%
 %% Custom commands
 %%
+\input{commands.tex}
 
 %
 % Tikz Setup
@@ -218,15 +219,19 @@
     each other for a little gain in storage space optimization are considered implementation details are are not discussed
     here.
 
-  \subsection{Algorithms}
+  \subsection{Matrix-Vector Multiplication}
+
+    \subsubsection{Basic CSR Multiplication scheme}
+    Basic imlementation --> Gains due to improved locality is \RSS[223]. \V \VS \J \JS \JP
+
+    $$\sum \limits_{\alpha = 0}^{\RSS[k] - 1} \V[\VS[k] + \alpha] \cdot x[\J[\JS[k] + \alpha] + \JP[k]]$$
+
+    SIMD implementation --> Further gains due to SIMD parallelism
 
     Stencil operation is applied multiple times during the solution, thus matvecmult speed is critical.
 
     \subsubsection{Matvecmult}
       improves locality (--> Performance)
-
-    \subsubsection{Element access A[i;j]}
-      binary lookup
 
 \section{Performance Benchmarks}
   Measure performance in terms of (1) data compression ratio and (2) arithmetic performance (matvecmult)
