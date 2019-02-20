@@ -13,39 +13,19 @@
 % Geometry
 \usepackage[left=2cm, right=2cm, top=2cm]{geometry}
 
+%
+% Tikz Setup
+%
+\usepackage{tikz}
+\newcommand{\tikzmark}[2]{
+    \tikz[overlay,remember picture,baseline]
+    \node[anchor=base] (#1) {$#2$};
+}
 %%
 %% Custom commands
 %%
 \input{commands.tex}
 
-%
-% Tikz Setup
-%
-\usepackage[customcolors]{hf-tikz}
-
-\tikzset{style green/.style={
-    set fill color=green!50!lime!60,
-    set border color=white,
-  },
-  style cyan/.style={
-    set fill color=cyan!90!blue!60,
-    set border color=white,
-  },
-  style orange/.style={
-    set fill color=orange!80!red!60,
-    set border color=white,
-  },
-  hor/.style={
-    above left offset={-0.15,0.31},
-    below right offset={0.15,-0.125},
-    #1
-  },
-  ver/.style={
-    above left offset={-0.1,0.3},
-    below right offset={0.15,-0.15},
-    #1
-  }
-}
 
 \author{Stanislaw Hüll}
 \title{Student Research Project}
@@ -71,7 +51,6 @@
     respect to the naive coordinate format (COO) in that each-nonzero's row index is no longer explicitly stored,
     shrinking the size of the third array from one entry per non-zero element to a single entry per row.
 
-    \input{fig/csr_example.tex}
 
     By convention, the non-zeros are stored row-wise in ordered fashion from left to right implying that each row's
     section within the column-index array is sorted in ascending fashion. Additionally, the row-pointer array contains
@@ -119,7 +98,7 @@
     adjacency pattern is disturbed by missing nodes as in the case of Dirichlet boundary conditions. Adjacency matrices
     are symmetric and have one row and column per node in the grid.
 
-    \input{fig/stencil_adj_mat.tex}
+    TODO IMAGE
 
     TODO: Bisher nur finite difference, was ist mit FEM?
 
@@ -222,16 +201,101 @@
   \subsection{Matrix-Vector Multiplication}
 
     \subsubsection{Basic CSR Multiplication scheme}
-    Basic imlementation --> Gains due to improved locality is \RSS[223]. \V \VS \J \JS \JP
 
-    $$\sum \limits_{\alpha = 0}^{\RSS[k] - 1} \V[\VS[k] + \alpha] \cdot x[\J[\JS[k] + \alpha] + \JP[k]]$$
+      Algorithmically, the basic multiplication schemes of the C3SR format and the CSR format are very similar. Both access their respective non-zeros by an index pointer into an array and compute the argument vector's access index in the same manner. Differences arise only in the C3SR's additional offset $\JP[k]$ which is applied to each relative column index.
 
-    SIMD implementation --> Further gains due to SIMD parallelism
+      C3sr:
+      $$\sum \limits_{\alpha = 0}^{\RSS[k] - 1} \V[\VS[k] + \alpha] \cdot x[\J[\JS[k] + \alpha] + \JP[k]]$$
 
-    Stencil operation is applied multiple times during the solution, thus matvecmult speed is critical.
+      CSR:
+      $$\sum \limits_{\alpha = 0}^{\RP[k] - 1} \V[\RP[k] + \alpha] \cdot x[\CI[\RP[k] + \alpha]]$$
 
-    \subsubsection{Matvecmult}
-      improves locality (--> Performance)
+      However, the fact that the C3SR format utilizes additional data structures to store information leads to additional accesses to memory. Assuming the general case of a large matrix devoid of any regularity in its structue whose size exceeds the machine's cache the CSR format's arithmetic performance will be better proportional to the reduction of loads from memory with respect to the C3SR format as this is a memory bound computation involving few trivial arithmetic operations.
+
+      On the flipside, structured matrices facilitate an optimized representation allowing a small segment of memory, corresponding to possibly only a few cache lines, to contain the matrix's complete structural information. This can drastically improve arithmetic performance of the C3SR format despite the more complex memory access scheme, as will be shown in the benchmark section.
+
+    \subsubsection{SIMD Implementation}
+
+      In addition to the performance gain utilizing the basic multiplication scheme, the data layout of a structured matrix in C3SR format allows for the matrix-vector multiplication to be implemented in such a way, as to utilize SIMD parallelism. The matrix's data is layed out in memory in such a way that the matrix-vector multiplication may be performed for multiple rows at a time using vectorization. Depending on the composition of the matrix three different, yet very similar, multiplication schemes can be devised.
+
+      Suppose that a horizontal slice of rows $r, \ldots, r+k$ has diagonal structure with the diagonals starting at indices $s, t, \ldots, u$, such as is depicted in TODO. The matrix-vector multiplication for each of the slice's rows is composed of the same number of summands, one per diagonal. Each of the summands is a product of the diagonal's non-zero entry and the argument's corresponding element, starting out with $a_{r,s} \cdot x_s$ for the first diagonal's initial element and $a_{r,t} \cdot x_t$ for the second diagonal. For each subsequent row the matrix element's indices are incremented aswell as the argumnet vector's index, commencing with $a_{r+1, s_1} \cdot x_{s+1}$ for the first diagonal's second element and accordingly for each other diagonal.
+
+      As each diagonal's summand accesses the argument vector's elements in consecutive fashion, for example $x_s, x_{s+1}, \ldots, x_{s + k}$ for the first diagonal, the multiplication can be vectorized. The other summand's constituents, the diagonal's matrix entries, are accessed at a fixed offset which is equal to the number of diagonals. This is due to the fact that the matrix slice's non-zero elements are stored row-by-row, where each row has the same number of elements. Thus $a_{r,s}$ is located as many elements before $a_{r+1, r+2}$ within \V as there are diagonals. 
+
+      \begin{equation}
+        \begin{pmatrix}
+          \\
+          \cdots & 0 & \tikzmark{diagAFirst}{a_{r,s}} &  0 & \cdots & \tikzmark{diagBFirst}{a_{r,t}} & 0 & \cdots & \cdots & \cdots \\
+          \cdots & \cdots & 0 & a_{r+1,s+1} & 0 & \cdots & a_{r+1,t+1} & 0 & \cdots & \cdots \\
+          \cdots & \cdots & \cdots & 0 & \tikzmark{diagALast}{a_{r+2,s+2}} & 0 & \cdots & \tikzmark{diagBLast}{a_{r+2,t+2}} & 0 & \cdots \\
+          \\
+        \end{pmatrix}
+      \end{equation}
+
+      \begin{tikzpicture}[overlay,remember picture]
+           \draw[color=red,opacity=0.1,line width=1mm,line cap=round] (diagAFirst.center) -- (diagALast.center);
+           \draw[color=green,opacity=0.1,line width=1mm,line cap=round] (diagBFirst.center) -- (diagBLast.center);
+      \end{tikzpicture}
+
+      \begin{equation}
+        \begin{matrix}
+          \begin{bmatrix}
+            a_{r,s}     \\
+            a_{r+1,s+1} \\
+               \vdots   \\
+            a_{r+k,s+k} \\
+          \end{bmatrix} & \cdot & \begin{bmatrix}
+                                    x_s      \\
+                                    x_{s+1}  \\
+                                      \vdots \\
+                                    x_{s+k}  \\
+                                  \end{bmatrix} & + & \begin{bmatrix}
+                                                      a_{r,t}     \\
+                                                      a_{r+1,t+1} \\
+                                                        \vdots    \\
+                                                      a_{r+k,t+k} \\
+                                                      \end{bmatrix} & \cdot & \begin{bmatrix}
+                                                                                x_t \\
+                                                                                x_{t+1} \\
+                                                                                \vdots \\
+                                                                                x_{t+k}
+                                                                              \end{bmatrix} & + & \cdots & = \begin{bmatrix}
+                                                                                                                 y_{r} \\
+                                                                                                                 y_{r+1} \\
+                                                                                                                 \vdots \\
+                                                                                                                 y_{r+k}
+                                                                                                                \end{bmatrix}
+        \end{matrix}
+      \end{equation}
+
+      In SIMD terms a stride-gather and a load is required for the diagonal's elements and the argument vector, respectively. The two vector registers are then multiplied and the result is then added onto the product pertaining to the next diagonal, as depicted in TODO.
+
+      For the case of a matrix slice whose structure is diagonal and whose values within each diagonal are identical, e.g. $a_{r,s} = a_{r+1, s+1} = \ldots$ for the first diagonal etc., the multiplication scheme is simplified in that the argument vector's values contained in the vector register are simply scaled by the diagonal's value instead of being subjected by a vectorized multiplication.
+
+      \begin{equation}
+        \begin{matrix}
+          a_{r,s} & \cdot & \begin{bmatrix}
+                                    x_s      \\
+                                    x_{s+1}  \\
+                                      \vdots \\
+                                    x_{s+k}  \\
+          \end{bmatrix} & + & a_{r,t} & \cdot & \begin{bmatrix}
+                                                x_t \\
+                                                x_{t+1} \\
+                                                \vdots \\
+                                                x_{t+k}
+                                                                              \end{bmatrix} & + & \cdots & =  \begin{bmatrix}
+                                                                                                                 y_{r} \\
+                                                                                                                 y_{r+1} \\
+                                                                                                                 \vdots \\
+                                                                                                                 y_{r+k}
+                                                                                                                \end{bmatrix}
+        \end{matrix}
+      \end{equation}
+
+      Another practically relevant case are matrix slices whose structure is uniform, i.e. each row's non-zero elements are situated at the same columns. The corresponding vectorized matrix-vector multiplication scheme is again quite similar to the general case of a diagonal structure and is derived in much the same manner. Here the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements as depicted in TODO.
+
+      All of the above mentioned arithmetic schemes can be extended to vector registers of arbitrary length and are thus theoretically scalable to better hardware.
 
 \section{Performance Benchmarks}
   Measure performance in terms of (1) data compression ratio and (2) arithmetic performance (matvecmult)
