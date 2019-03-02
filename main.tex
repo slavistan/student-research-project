@@ -68,18 +68,34 @@
 
   \subsection{Structured Grid Matrices}
 
-    Structured grid computations are ubiquitously used for physical simulations for computational fluid dynamics,
-    electrodynamics and astrophysics.  In contrast to unstructured grids the regularity inherent to structured grids
+    Structured grid computations are ubiquitously used for physical simulations in fields such as computational fluid dynamics,
+    electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are logically rectangular, i.e. they are uniquely identified by a tuple of coordinates, such as $(i, j, k)$ for three dimensions, and v.v.
+
+    In contrast to unstructured grids the regularity inherent to structured grids
     allows for very efficient numerical treatment, such that even in cases where sufficiently complex geometries
     prohibit the decomposition of the target domain into a single overarching structured grid the domain is often
     tesselated into an unstructured configuration, with the tiles being filled by independent structured grids
-    \cite{Badcock2000}.
+    \cite{Badcock2000}, such as is depicted in Figure \ref{fig:refined_structured_grid}.
+
+    \begin{figure}[ht]
+      \centering
+      \includegraphics[width=0.8\textwidth]{fig/refined_structured_grid}
+      \caption{Homogeneous mesh whose outer side (green) and interior volume are fully structured and are connected via an unstructured mesh region. Given proper indexing of grid nodes the resulting sparse matrix will exhibit regularity in the sections pertaining to the structured mesh regions.}
+      \label{fig:refined_structured_grid}
+    \end{figure}
+
+    The discretization and linearization process yields a sparse linear system whose solution is approximated by iterative methods which require repeated sparse matrix-vector-multiplication $Ax = b$. Structured grids produce matrices matrices whose structure is highly regular and which represents the relationship of grid points to their neighbors. Generally they consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes.
+
+    Depending on the underlying physical problem and the discretization scheme chosen to approximate the differential operators the matrix's non-zero's values vary. The simplest case of differential operators being applied to a matrix.
+
+    Solving problems on higher-dimensional entities such as vectors or matrices yields structured matrices whose elements are square matrices.
+
 
     To derive an approximate solution to a physical system's set of partial differential equations
     the PDEs are discretized on the structured grid by approximating the differential operators by algebraic
     expressions. A promiment example is the Cartesian finite-difference approximation of the Laplacian operator.
     The discretization step yields a linear problem $A x = b$ in which the right-hand side $b$ depends only on the
-    boundary conditions and is thus known.
+    boundary conditions and is thus known in advance. The system is then solved by an iterative method which involves repeatedly multiplying an initial guess $x_0$ by  whereby an initial guess
 
     (((TODO))) The solution of this linear system by iterative means requires that, starting at an initial guess $x_0$,
     a stencil operation is applied to each node, i.e. its new value is determined by a weighted sum of the current
@@ -128,7 +144,7 @@
 
   \subsection{Data layout and storage scheme}
 
-    The basic motive of this work is to leverage the regularity inherent in structured grid adjacency matrices. The vast
+    The basic motive of this work is to leverage the regularity inherent in structured grid adjacency matrices for matrix-vector multiplication. The vast
     majority of the matrix's rows share a common column index pattern. Their non-zero elements occur at fixed offsets
     with respect to the row's first non-zero element's position.
 
@@ -293,9 +309,40 @@
         \end{matrix}
       \end{equation}
 
-      Another practically relevant case are matrix slices whose structure is uniform, i.e. each row's non-zero elements are situated at the same columns. The corresponding vectorized matrix-vector multiplication scheme is again quite similar to the general case of a diagonal structure and is derived in much the same manner. Here the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements as depicted in TODO.
+      Another practically relevant case are matrix slices whose structure is uniform, i.e. each row's non-zero elements are situated at the same columns. The corresponding vectorized matrix-vector multiplication scheme is again similar to the general case of a diagonal structure. Here the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again located at fixed offsets within \V  as depicted in TODO.
 
-      All of the above mentioned arithmetic schemes can be extended to vector registers of arbitrary length and are thus theoretically scalable to better hardware.
+      \begin{equation}
+        \begin{pmatrix}
+          \\
+          \cdots & 0 & a_{r,s} &  0 & \cdots & a_{r,t} & 0 & \cdots \\
+          \cdots & 0 & a_{r+1,s} & 0 & \cdots & a_{r+1,t} & 0 & \cdots \\
+          \cdots & 0 & a_{r+2,s} & 0 & \cdots & a_{r+2,t} & 0 & \cdots \\
+          \\
+        \end{pmatrix}
+      \end{equation}
+
+      \begin{equation}
+        \begin{matrix}
+          \begin{bmatrix}
+            a_{r,s}     \\
+            a_{r+1,s+1} \\
+               \vdots   \\
+            a_{r+k,s+k} \\
+          \end{bmatrix} & \cdot & x_s & + & \begin{bmatrix}
+                                              a_{r,t}     \\
+                                              a_{r+1,t+1} \\
+                                                \vdots    \\
+                                              a_{r+k,t+k} \\
+                                            \end{bmatrix} & \cdot & x_t & + \cdots & = \begin{bmatrix}
+                                                                                       y_{r} \\
+                                                                                       y_{r+1} \\
+                                                                                       \vdots \\
+                                                                                       y_{r+k} \\
+                                                                                     \end{bmatrix}
+        \end{matrix}
+      \end{equation}
+
+      All of the above mentioned arithmetic schemes can be extended to vector registers of arbitrary length and are thus theoretically able to scale with additional hardware cabalities.
 
 \section{Performance Benchmarks}
   Measure performance in terms of (1) data compression ratio and (2) arithmetic performance (matvecmult)
@@ -317,10 +364,26 @@
     where $n_x, n_y, n_z$ are periodicity parameters for each dimensions.
 
     Note that $n_d = 0 \Leftrightarrow \partial_d W(\vec{r}) \equiv 0$, introducing a periodicity in the corresponding
-    dimension $d$. This feature is utilized to create periodicity in the matrix's values.
+    dimension $d$. This feature is utilized to control the periodicity in the matrix's values.
 
     (((Example of matrix + Computation of nonzeros)))
 
+    For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second, larger matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil.
+
+    The matrices' stats are displayed:
+
+    \begin{tabular}{ l c c }
+             & Small & Large \\
+      \hline                        \\
+      V      & 135    & 6940000 \\
+      VS     & 1000000 & 1000000 \\
+      J      & 135    & 135 \\
+      JS     & 1000000 & 1000000 \\
+      JP     & 1000000 & 1000000 \\
+      RSS    & 1000001 & 1000001 \\
+    \end{tabular}
+
+    Note that the ... Daten unterscheiden sich nur in V (--> selbe struktur)
   \subsection{Data compression}
 
     This plot compares the number of array elements required in the C3SR format to store a fully structured matrix's column index information (green curve) against the baseline size of the equivalent CSR format matrix's column index array (red curve) depending on the partition size utilized for the structural compression. The C3SR format's recorded number of elements comprises the sum of the sizes of the J, JP and JS arrays, respectively. The RS array and the CSR format's row-pointer array are left out of the consideration as they are identical in size. The underlying $50 \times 50 \times 50$ grid contains $125000$ nodes to which the symmetric 7-pt stencil is applied. The numerical values of the matrix are of no concern for its structure.
@@ -347,38 +410,21 @@
 
   \subsection{Arithmetic Performance of Matrix-Vector Multiplication}
 
-    This plot compares the number of array elements required in the C3SR format to store a fully structured matrix's column index information (green curve) against the baseline size of the equivalent CSR format matrix's column index array (red curve) depending on the partition size utilized for the structural compression. The C3SR format's recorded number of elements comprises the sum of the sizes of the J, JP and JS arrays, respectively. The RS array and the CSR format's row-pointer array are left out of the consideration as they are identical in size. The underlying $50 \times 50 \times 50$ grid contains $125000$ nodes to which the symmetric 7-pt stencil is applied. The numerical values of the matrix are of no concern for its structure.
-
-    The C3SR format's diminishing storage requirements are caused solely by J (blue curve) as JS and
-    JP are constant in size, each containing $125000$ elements, one per matrix row. The size of J
-    exhibits an inverse linear relationship to the partition size, as can be inferred from the
-    straight line's gradient in the double logarithmic plot. This is due to the fact that large
-    grids mainly consist of inner nodes whose corresponding rows in the matrix all share the same pattern. Hence the overwhelming majority of partitions' column index information will condense to 7 elements within J (and one element per row for JS and JP) irrespective of the partition size with exceptions arising only around the few border nodes and their corresponding rows.
-
-    The minimum size of J is determined by the matrix's unique patterns which correspond to 8 corner
-    nodes a 4 adjacent nodes, 12 edge nodes a 5 adjacency nodes, 6 face nodes a 6 adjaceny nodes and
-    the inner nodes with the full 7 adjacency nodes totalling $135$ entries. (TODO: Tikz 3d-draw
-    representative of all nodes creating unique patterns).
+    As this is a memory bound operation it is to be expected that the efficacy of simd parallism increases as the object size decreases.
 
     \begin{figure}[!ht]
       \centering
-      \subfloat{
-        \centering
-        \includegraphics[width=0.9\textwidth]{assets/bench-matvecmult-structured-duration}
-        \label{fig:bench-matvecmult-structured-duration}}\par
-      \subfloat{
-        \centering
-        \includegraphics[width=0.9\textwidth]{assets/bench-matvecmult-structured-object-size}
-        \label{fig:bench-matvecmult-structured-object-size}}
-      \caption{Performance comparison}
+      \includegraphics[width=0.9\textwidth]{assets/arithmetic_performance}
+      \caption{Arithmetic Performance}
     \end{figure}
 
-    // TODO: Linear Minorbreaks in Plots
 \section{Summary}
   Advantages: General purpose, good performance, parallel scalability
   Disadv: Static structure (cannot add/remove elements)
 
 OVERALLTODO:
   TODO: ... will be referred to as 'structured matrix' ==== adjacency matrix of structured grids assuming xyz-indexing
+
+  "No need to fully compress the matrix" --> Diminishing returns; parallelizability
 \printbibliography
 \end{document}
