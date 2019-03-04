@@ -1,4 +1,4 @@
-\begin{tikzpicture}[scale=0.75]%[every node/.style={minimum size=1cm},on grid]
+\begin{tikzpicture}[scale=0.65]%[every node/.style={minimum size=1cm},on grid]
 \newcommand*{\height}{5}
 \newcommand*{\width}{5}
 \begin{scope}[every node/.append style={yslant=-0.5},yslant=-0.5]

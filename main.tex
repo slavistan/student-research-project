@@ -19,9 +19,11 @@
   top=1.5cm, % Top margin
   bottom=1.5cm, % Bottom margin
 }
+\usepackage[onehalfspacing]{setspace}
 \usepackage{parskip}
 %
-\usepackage{floatrow}
+%\usepackage{floatrow}
+
 %
 % Tikz Setup
 %
@@ -85,34 +87,44 @@
 
   \subsection{Structured Grid Matrices}
 
-    Structured grid computations are ubiquitously used for physical simulations in fields such as computational fluid dynamics, electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are logically rectangular, i.e. they are uniquely identified by a tuple of coordinates and v.v., such as $(i, j, k)$ for three dimensions.
+    Structured grid computations are ubiquitously used for physical simulations in fields such as computational fluid dynamics, electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are logically rectangular, i.e. they are uniquely identified by a tuple of coordinates and v.v., such as $(i, j, k)$ for three dimensions (Figure \ref{fig:structured_grid_example}).
 
-    \begin{figure}
-      \floatbox[{\capbeside\thisfloatsetup{capbesideposition={left,top},capbesidewidth=0.3\textwidth}}]{figure}[\FBwidth]
-      {\caption{Homogeneous mesh whose outer side (green) and interior volume are fully structured and are connected via an unstructured mesh region. Given proper indexing of grid nodes the resulting sparse matrix will exhibit regularity in the sections pertaining to the structured mesh regions.}
-      \label{fig:refined_structured_grid}}
-      {\includegraphics[width=0.5\textwidth]{fig/refined_structured_grid}}
+    \begin{figure}[ht]
+        \centering
+        \vspace{0.5cm}
+        \begin{minipage}{0.4\textwidth}
+          \centering
+          \includegraphics[width=0.9\textwidth]{fig/structured_grid_example.png} % second figure itself
+          \caption{\textbf{Curvi-linear grid over a physically complex domain.} The grid nodes are logically rectangular despite the non-rectangular physical domain and thus comprise a structured grid. Source: \cite{daad:website}}
+          \label{fig:structured_grid_example}
+        \end{minipage}\hfill
+        \begin{minipage}{0.5\textwidth}
+          \centering
+          \includegraphics[width=0.9\textwidth]{fig/refined_structured_grid.png} % second figure itself
+          \caption{\textbf{Heterogeneous mesh with structured regions.} Outer side (green) and interior volume are fully structured and are connected via an unstructured mesh region. Given proper indexing of grid nodes the resulting sparse matrix will exhibit regularity in the sections pertaining to the structured mesh region. Source: \cite{cubit-mesh-refinement:website}}
+          \label{fig:refined_structured_grid}
+        \end{minipage}
     \end{figure}
 
-    In contrast to unstructured grids the regularity inherent to structured grids allows for very efficient numerical treatment, such that even in cases where sufficiently complex geometries prohibit the decomposition of the target domain into a single overarching structured grid the domain is often tesselated into an unstructured configuration, with the tiles being filled by independent structured grids \cite{Badcock2000}, such as is depicted in Figure \ref{fig:refined_structured_grid}.
+    In contrast to unstructured grids the regularity inherent to structured grids allows for very efficient numerical treatment, such that even in cases where sufficiently complex geometries prohibit the decomposition of the target domain into a single overarching structured grid the domain is often tesselated into an unstructured configuration, with the tiles being filled by independent structured grids \cite{Badcock2000}, such as is shown in Figure \ref{fig:refined_structured_grid}.
 
     \begin{figure}
         \centering
         \begin{minipage}{0.45\textwidth}
           \centering
           \input{fig/laplacian_example.tikz}
-        \end{minipage}
-        \begin{minipage}{0.35\textwidth}
+        \end{minipage}\hfill
+        \begin{minipage}{0.45\textwidth}
             \centering
             \includegraphics[width=0.9\textwidth]{fig/laplacian_example.png} % second figure itself
         \end{minipage}
-        \caption{Structured grid and corresponding sparse adjacency matrix for a simple Laplacian $\nabla^2 u(\vec{r}) = 0$. The Laplace-operator is approximated by the conventioanl 3-axial symmetric discretization scheme,       equivalent to a symmetric 7-point stencil operation.}
+        \caption{\textbf{Structured grid and corresponding sparse adjacency matrix for a simple Laplacian} $\nabla^2 u(\vec{r}) = 0$. The Laplace-operator is approximated by the conventioanl 3-axial symmetric discretization scheme, equivalent to a symmetric 7-point stencil operation.}
         \label{fig:laplacian_example}
     \end{figure}
 
     The solution procedure yields a sparse linear system whose solution is approximated by iterative methods which involve repeated sparse matrix-vector-multiplications $Ax = b$ where the matrix $A$ encodes the adjacency structure of the grid. For structured grids the resulting matrix's distribution of non-zeros is highly repetitive across its rows. Generally speaking, such matrices consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes. A grid and corresponding sparse matrix's structure are depicted in Figure \ref{fig:laplacian_example} for a simple Laplacian problem.
 
-    The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' type of approximation. In general, the non-zeros' numeric values are independent from their column indices but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields structured matrices whose elements are themselves square matrices \cite{Godwin2013}.
+    The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' type of approximation. In general, the non-zeros' numeric values are independent from their column indices but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields structured matrices whose 'elements' are themselves square matrices \cite{Godwin2013}.
 
     - for the purpose of this work structured grid matrices are such matrices whose majority of rows shares a common pattern.
 
