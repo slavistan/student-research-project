@@ -9,10 +9,19 @@
 \usepackage[backend=biber]{biblatex}
 \addbibresource{bib/bibliography.bib}
 % Subimages
-\usepackage{subfig}
 % Geometry
-\usepackage[left=2cm, right=2cm, top=2cm]{geometry}
-
+\usepackage{geometry}
+\geometry{
+  paper=a4paper, % Change to letterpaper for US letter
+  inner=2.5cm, % Inner margin
+  outer=3.8cm, % Outer margin
+  bindingoffset=.5cm, % Binding offset
+  top=1.5cm, % Top margin
+  bottom=1.5cm, % Bottom margin
+}
+\usepackage{parskip}
+%
+\usepackage{floatrow}
 %
 % Tikz Setup
 %
@@ -21,6 +30,14 @@
     \tikz[overlay,remember picture,baseline]
     \node[anchor=base] (#1) {$#2$};
 }
+\usetikzlibrary{positioning}
+%
+% Font
+%
+\usepackage{fontspec}
+%\defaultfontfeatures{Mapping=tex-text,Scale=MatchLowercase}
+\setmainfont{Palatino Linotype}
+%\setmonofont{Lucida Sans Typewriter}
 %%
 %% Custom commands
 %%
@@ -68,72 +85,56 @@
 
   \subsection{Structured Grid Matrices}
 
-    Structured grid computations are ubiquitously used for physical simulations in fields such as computational fluid dynamics,
-    electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are logically rectangular, i.e. they are uniquely identified by a tuple of coordinates, such as $(i, j, k)$ for three dimensions, and v.v.
+    Structured grid computations are ubiquitously used for physical simulations in fields such as computational fluid dynamics, electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are logically rectangular, i.e. they are uniquely identified by a tuple of coordinates and v.v., such as $(i, j, k)$ for three dimensions.
 
-    In contrast to unstructured grids the regularity inherent to structured grids
-    allows for very efficient numerical treatment, such that even in cases where sufficiently complex geometries
-    prohibit the decomposition of the target domain into a single overarching structured grid the domain is often
-    tesselated into an unstructured configuration, with the tiles being filled by independent structured grids
-    \cite{Badcock2000}, such as is depicted in Figure \ref{fig:refined_structured_grid}.
-
-    \begin{figure}[ht]
-      \centering
-      \includegraphics[width=0.8\textwidth]{fig/refined_structured_grid}
-      \caption{Homogeneous mesh whose outer side (green) and interior volume are fully structured and are connected via an unstructured mesh region. Given proper indexing of grid nodes the resulting sparse matrix will exhibit regularity in the sections pertaining to the structured mesh regions.}
-      \label{fig:refined_structured_grid}
+    \begin{figure}
+      \floatbox[{\capbeside\thisfloatsetup{capbesideposition={left,top},capbesidewidth=0.3\textwidth}}]{figure}[\FBwidth]
+      {\caption{Homogeneous mesh whose outer side (green) and interior volume are fully structured and are connected via an unstructured mesh region. Given proper indexing of grid nodes the resulting sparse matrix will exhibit regularity in the sections pertaining to the structured mesh regions.}
+      \label{fig:refined_structured_grid}}
+      {\includegraphics[width=0.5\textwidth]{fig/refined_structured_grid}}
     \end{figure}
 
-    The discretization and linearization process yields a sparse linear system whose solution is approximated by iterative methods which require repeated sparse matrix-vector-multiplication $Ax = b$. Structured grids produce matrices matrices whose structure is highly regular and which represents the relationship of grid points to their neighbors. Generally they consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes.
+    In contrast to unstructured grids the regularity inherent to structured grids allows for very efficient numerical treatment, such that even in cases where sufficiently complex geometries prohibit the decomposition of the target domain into a single overarching structured grid the domain is often tesselated into an unstructured configuration, with the tiles being filled by independent structured grids \cite{Badcock2000}, such as is depicted in Figure \ref{fig:refined_structured_grid}.
 
-    Depending on the underlying physical problem and the discretization scheme chosen to approximate the differential operators the matrix's non-zero's values vary. The simplest case of differential operators being applied to a matrix.
+    \begin{figure}
+        \centering
+        \begin{minipage}{0.45\textwidth}
+          \centering
+          \input{fig/laplacian_example.tikz}
+        \end{minipage}
+        \begin{minipage}{0.35\textwidth}
+            \centering
+            \includegraphics[width=0.9\textwidth]{fig/laplacian_example.png} % second figure itself
+        \end{minipage}
+        \caption{Structured grid and corresponding sparse adjacency matrix for a simple Laplacian $\nabla^2 u(\vec{r}) = 0$. The Laplace-operator is approximated by the conventioanl 3-axial symmetric discretization scheme,       equivalent to a symmetric 7-point stencil operation.}
+        \label{fig:laplacian_example}
+    \end{figure}
 
-    Solving problems on higher-dimensional entities such as vectors or matrices yields structured matrices whose elements are square matrices.
+    The solution procedure yields a sparse linear system whose solution is approximated by iterative methods which involve repeated sparse matrix-vector-multiplications $Ax = b$ where the matrix $A$ encodes the adjacency structure of the grid. For structured grids the resulting matrix's distribution of non-zeros is highly repetitive across its rows. Generally speaking, such matrices consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes. A grid and corresponding sparse matrix's structure are depicted in Figure \ref{fig:laplacian_example} for a simple Laplacian problem.
 
+    The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' type of approximation. In general, the non-zeros' numeric values are independent from their column indices but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields structured matrices whose elements are themselves square matrices \cite{Godwin2013}.
 
-    To derive an approximate solution to a physical system's set of partial differential equations
-    the PDEs are discretized on the structured grid by approximating the differential operators by algebraic
-    expressions. A promiment example is the Cartesian finite-difference approximation of the Laplacian operator.
-    The discretization step yields a linear problem $A x = b$ in which the right-hand side $b$ depends only on the
-    boundary conditions and is thus known in advance. The system is then solved by an iterative method which involves repeatedly multiplying an initial guess $x_0$ by  whereby an initial guess
-
-    (((TODO))) The solution of this linear system by iterative means requires that, starting at an initial guess $x_0$,
-    a stencil operation is applied to each node, i.e. its new value is determined by a weighted sum of the current
-    values of its adjacent nodes. Which nodes are considered adjacent depends on the approximation of the differential
-    operators, but in general the pattern is symmetric with respect to the node in question while the individual weights
-    of the weighted sum might change from node to node. The stencil corresponding to the finite-difference Laplacian is
-    the symmetric 5-point or 7-point stencil for 2D or 3D grids, respectively.
-
-    The stencil operation across the grid can be expressed in terms of a matrix-vector multiplication, where
-    the vector contains the grid nodes' function values and the matrix is the grid's adjacency matrix, whose non-zero
-    entries encode the adjacency relation of the stencil across the whole matrix and whose numeric values are the
-    weighted sum's weights. These adjacency matrices have a very characteristic structure, whose exact shape depends on
-    the type of boundary condition underlying the physical system's PDEs and on the stencil's geometry. In general, they
-    are symmetric and consist of as many diagonals as there are nodes in the stencil. The diagonals are almost fully
-    dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the
-    adjacency pattern is disturbed by missing nodes as in the case of Dirichlet boundary conditions. Adjacency matrices
-    are symmetric and have one row and column per node in the grid.
+    - for the purpose of this work structured grid matrices are such matrices whose majority of rows shares a common pattern.
 
     TODO IMAGE
-
-    TODO: Bisher nur finite difference, was ist mit FEM?
 
     Arise as finite difference adjacency matrices from discretization of elliptic type PDE (SPARSKIT 7.1)
       and structured mesh finite element matrices.
     Are (locally) structured.
     "Almost" diagonal --> DIA not the best. [Godwin2013: p9!!!]
 
+    The basic motive of this work is to leverage the regularity inherent in structured grid adjacency matrices for matrix-vector multiplication. The vast majority of the matrix's rows share a common column index pattern. Their non-zero elements occur at fixed offsets with respect to the row's first non-zero element's position. Depending on the type of boundary conditions and the stencil from which the matrix is drawn there exists a small family of node types whose corresponding matrix rows differ in structure. For example, Dirichlet boundary conditions and a symmetric 7p-stencil will produce corresponding to 8 corner nodes, 8 edge nodes, 6 plane nodes and the inner nodes.
+
+    ((( TODO: Bild )))
+
+    While all node types on the surface of the domain have only very few representatives the vast majority of nodes will be of the inner node type, i.e. nodes whose matrix rows express the full adjacency structure of the stencil. Hence virtually all rows in a structured grid matrix will produce the same pattern.
+
 \section{Three-fold compressed sparse row}
 
 // TODO: Section with nomenclature
   - structure, pattern, ...
 
-  Evidently, representing a structured grid's adjacency matrix using the regular CSR format is highly suboptimal, as it
-  has no means of capturing the obvious repetetiveness of the structure. While at first glance the diagonal format seems
-  to be an appealing choice for the types of matrices introduced in the previous section, real-life problems produce
-  matrices which are only locally structured, i.e. they contain multiple fully structured sections corresponding to the
-  multiple structured grid regions of the overall heterogeneous domain mentioned above, which need not be aligned in
-  a way to produce a diagonal structure at all. Thus a more flexible approach is taken adapting the CSR format.
+  Evidently, representing a structured grid's adjacency matrix using the regular CSR format is highly suboptimal, as it has no means of capturing the apparent repetetiveness of the structure. While at first glance the diagonal format might seem an appealing choice for the types of matrices introduced in the previous section, real-life problems produce matrices which are only locally structured, i.e. they contain multiple fully structured sections corresponding to the multiple structured grid regions of the overall heterogeneous domain mentioned above, which need not be aligned in a way to produce a diagonal structure at all. Thus a more flexible approach is taken adapting the CSR format.
 
   Additionally, utilizing a CSR-like format keeps open the possibility to eventually tackle adjacency matrices of
   unstructured grids.
@@ -144,44 +145,21 @@
 
   \subsection{Data layout and storage scheme}
 
-    The basic motive of this work is to leverage the regularity inherent in structured grid adjacency matrices for matrix-vector multiplication. The vast
-    majority of the matrix's rows share a common column index pattern. Their non-zero elements occur at fixed offsets
-    with respect to the row's first non-zero element's position.
 
-      ((( TODO: Bild )))
-
-    It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the
-    non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values
-    need not be similar to each other at all and, possibly, even vice versa. To prevent that a lack of common regularity
-    impedes optimizing the storage requirements of one or the other it is hence necessary to decouple the representation
-    of a row's column index positions from the representation of its numerical values. The C3SR format accounts for this
-    circumstance and maintains separate data structures for the patterns and values.
+    It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values need not be similar to each other at all and, possibly, even vice versa. To prevent that a lack of common regularity impedes optimizing the storage requirements of one or the other it is hence necessary to decouple the representation of a row's column index positions from the representation of its numerical values. The C3SR format accounts for this circumstance and maintains separate data structures for the patterns and values.
 
     //TODO Erst colindices einführen, dann values und darauf hinweise, dass VS redundant ist, falls keine values
     compression erwünscht ist.
 
-    The values are represented by two arrays which utilize the CSR's basic idea of storing all relevant data in an
-    array (V) and managing a separate start-index array (VS) pointing each row's section's first element.
+    The values are represented by two arrays which utilize the CSR's basic idea of storing all relevant data in an array (V) and managing a separate start-index array (VS) pointing each row's section's first element.
 
       ((( TODO: Bild. Einfache matrix mit values )))
 
-    The column indices are stored abiding by the same principle with the additional detail that each row's column
-    indices are decomposed into the absolute index of the row's first non-zero element, which is referred to as the
-    row's 'peg', and the relative offsets of the remaining non-zeros' column indices with respect to the peg index.
-    This introduces a degree of freedom whose usefulness will become evident in the context of compression. Thus the
-    column indices are encoded into an array storing the patterns (J), another array storing the peg index (JP)
-    and an index pointer array (JS) into J in the same way that VS relates to V.
+    The column indices are stored abiding by the same principle with the additional detail that each row's column indices are decomposed into the absolute index of the row's first non-zero element, which is referred to as the row's 'peg', and the relative offsets of the remaining non-zeros' column indices with respect to the peg index.  This introduces a degree of freedom whose usefulness will become evident in the context of compression. Thus the column indices are encoded into an array storing the patterns (J), another array storing the peg index (JP) and an index pointer array (JS) into J in the same way that VS relates to V.
 
       ((( TODO: Bild )))
 
-    A sixth and final array (RS) is used to encode the number of non-zeros in each row of the matrix in order to know
-    the size of the row's section within the pattern array and the values array. The RS array is an immediate copy of
-    the CSR format's row-pointer array.  While the respective start index-pointer arrays store the section's first
-    element's index they cannot encode the size of the section. Prior to compressing the size of a row can indeed be
-    retrieved from the corresponding start index-pointer array in the same way the CSR format's row size may be
-    retrieved from the row-pointer array by taking the difference between the row's entry and its successor, however,
-    this requires that the row's sections are stored contiguously in the arrays and this property is lost during
-    compression as will be explained in the next section.
+    A sixth and final array (RS) is used to encode the number of non-zeros in each row of the matrix in order to know the size of the row's section within the pattern array and the values array. The RS array is an immediate copy of the CSR format's row-pointer array.  While the respective start index-pointer arrays store the section's first element's index they cannot encode the size of the section. Prior to compressing the size of a row can indeed be retrieved from the corresponding start index-pointer array in the same way the CSR format's row size may be retrieved from the row-pointer array by taking the difference between the row's entry and its successor, however, this requires that the row's sections are stored contiguously in the arrays and this property is lost during compression as will be explained in the next section.
 
     Summarizing the data organization of the C3SR format:
     \begin{itemize}
@@ -384,6 +362,7 @@
     \end{tabular}
 
     Note that the ... Daten unterscheiden sich nur in V (--> selbe struktur)
+    --> SIMD Multiplikation verwendet bei den Matrizen unterschiedliche implementierungen (s. SIMD arithmetik)
   \subsection{Data compression}
 
     This plot compares the number of array elements required in the C3SR format to store a fully structured matrix's column index information (green curve) against the baseline size of the equivalent CSR format matrix's column index array (red curve) depending on the partition size utilized for the structural compression. The C3SR format's recorded number of elements comprises the sum of the sizes of the J, JP and JS arrays, respectively. The RS array and the CSR format's row-pointer array are left out of the consideration as they are identical in size. The underlying $50 \times 50 \times 50$ grid contains $125000$ nodes to which the symmetric 7-pt stencil is applied. The numerical values of the matrix are of no concern for its structure.
@@ -426,5 +405,13 @@ OVERALLTODO:
   TODO: ... will be referred to as 'structured matrix' ==== adjacency matrix of structured grids assuming xyz-indexing
 
   "No need to fully compress the matrix" --> Diminishing returns; parallelizability
+
+  TODO:
+    - Abschätzung Performance-Gain vs. Speicherzugriffe/Matrixgröße
+    - KNL Cores haben simple Hardware --> Effekt von korrektem Code ist größer
+    - KNL: Falls Chunks zu groß werden fällt Working Set aus Cache
+    - Wozu Partitionierung --> Threads können parallel arbeiten
+    - Throughput-Abschätzung (Bewegte Datenmenge aus DRAM / Dauer); A,x,y (jedes Element wird ~1 mal ausgelesen)
+
 \printbibliography
 \end{document}
