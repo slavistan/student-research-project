@@ -8,7 +8,6 @@
 % Bib
 \usepackage[backend=biber]{biblatex}
 \addbibresource{bib/bibliography.bib}
-% Subimages
 % Geometry
 \usepackage{geometry}
 \geometry{
@@ -22,7 +21,6 @@
 \usepackage[onehalfspacing]{setspace}
 \usepackage{parskip}
 %
-%\usepackage{floatrow}
 
 %
 % Tikz Setup
@@ -87,7 +85,7 @@
 
   \subsection{Structured Grid Matrices}
 
-    Structured grid computations are ubiquitously used for physical simulations in fields such as computational fluid dynamics, electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are logically rectangular, i.e. they are uniquely identified by a tuple of coordinates and v.v., such as $(i, j, k)$ for three dimensions (Figure \ref{fig:structured_grid_example}).
+    Structured grid computations are ubiquitously used for physical simulations in scientific fields such as, for example, computational fluid dynamics, electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are logically rectangular, i.e. they are uniquely identified by a tuple of coordinates and v.v., such as $(i, j, k)$ for three dimensions (Figure \ref{fig:structured_grid_example}).
 
     \begin{figure}[ht]
         \centering
@@ -106,7 +104,7 @@
         \end{minipage}
     \end{figure}
 
-    In contrast to unstructured grids the regularity inherent to structured grids allows for very efficient numerical treatment, such that even in cases where sufficiently complex geometries prohibit the decomposition of the target domain into a single overarching structured grid the domain is often tesselated into an unstructured configuration, with the tiles being filled by independent structured grids \cite{Badcock2000}, such as is shown in Figure \ref{fig:refined_structured_grid}.
+    In contrast to unstructured grids the regularity inherent to structured grids allows for very efficient numerical treatment, such that even in cases where sufficiently complex geometries prohibit the decomposition of the target domain into a single overarching structured grid the domain is often tesselated into an unstructured configuration, with the tiles being filled by independent structured grids \cite{Badcock2000}(Figure \ref{fig:refined_structured_grid}).
 
     \begin{figure}
         \centering
@@ -118,28 +116,15 @@
             \centering
             \includegraphics[width=0.9\textwidth]{fig/laplacian_example.png} % second figure itself
         \end{minipage}
-        \caption{\textbf{Structured grid and corresponding sparse adjacency matrix for a simple Laplacian} $\nabla^2 u(\vec{r}) = 0$. The Laplace-operator is approximated by the conventioanl 3-axial symmetric discretization scheme, equivalent to a symmetric 7-point stencil operation.}
+        \caption{\textbf{Structured grid and corresponding sparse adjacency matrix for a simple Laplacian} $\nabla^2 u(\vec{r}) = 0$. The Laplace-operator is approximated by the conventional 3-axial symmetric discretization scheme, equivalent to a symmetric 7-point stencil operation.}
         \label{fig:laplacian_example}
     \end{figure}
 
-    The solution procedure yields a sparse linear system whose solution is approximated by iterative methods which involve repeated sparse matrix-vector-multiplications $Ax = b$ where the matrix $A$ encodes the adjacency structure of the grid. For structured grids the resulting matrix's distribution of non-zeros is highly repetitive across its rows. Generally speaking, such matrices consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes. A grid and corresponding sparse matrix's structure are depicted in Figure \ref{fig:laplacian_example} for a simple Laplacian problem.
+    The solution procedure yields a sparse linear system whose solution is approximated by iterative methods involving repeated sparse matrix-vector-multiplications $Ax = b$ where the matrix $A$ encodes the adjacency structure of the grid. For a structured grid the resulting matrix's distribution of non-zeros has a very distinct pattern. Generally speaking, such matrices consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes. A grid and its corresponding sparse matrix's structure are depicted in Figure \ref{fig:laplacian_example} for a simple Laplacian problem.
 
-    The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' type of approximation. In general, the non-zeros' numeric values are independent from their column indices but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields structured matrices whose 'elements' are themselves square matrices \cite{Godwin2013}.
+    The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' discretization schemes. In general, the non-zeros' numeric values are independent from their location within the matrix but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields structured matrices whose 'elements' are themselves square matrices \cite{Godwin2013}.
 
-    - for the purpose of this work structured grid matrices are such matrices whose majority of rows shares a common pattern.
-
-    TODO IMAGE
-
-    Arise as finite difference adjacency matrices from discretization of elliptic type PDE (SPARSKIT 7.1)
-      and structured mesh finite element matrices.
-    Are (locally) structured.
-    "Almost" diagonal --> DIA not the best. [Godwin2013: p9!!!]
-
-    The basic motive of this work is to leverage the regularity inherent in structured grid adjacency matrices for matrix-vector multiplication. The vast majority of the matrix's rows share a common column index pattern. Their non-zero elements occur at fixed offsets with respect to the row's first non-zero element's position. Depending on the type of boundary conditions and the stencil from which the matrix is drawn there exists a small family of node types whose corresponding matrix rows differ in structure. For example, Dirichlet boundary conditions and a symmetric 7p-stencil will produce corresponding to 8 corner nodes, 8 edge nodes, 6 plane nodes and the inner nodes.
-
-    ((( TODO: Bild )))
-
-    While all node types on the surface of the domain have only very few representatives the vast majority of nodes will be of the inner node type, i.e. nodes whose matrix rows express the full adjacency structure of the stencil. Hence virtually all rows in a structured grid matrix will produce the same pattern.
+    The sparse matrices relevant to this work areany sparse matrices which contain one or more sets of rows whose non-zero's column indices are identical save for a fixed offset. Structured grid matrices arising from the procedure mentioned above have one such set to which the overwhelming majority of rows belong corresponding to all inner grid nodes (such as in the example in Figure \ref{fig:laplacian_example}). However, all of the ideas presented hereinafter may be applied to any sparse matrix whose structure exhibits any degree of repetiveness.
 
 \section{Three-fold compressed sparse row}
 
