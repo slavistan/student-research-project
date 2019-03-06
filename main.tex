@@ -1,8 +1,8 @@
 \documentclass{article}
 
 % Packages
-\usepackage[utf8]{inputenc} % Required for German umlauts
-\usepackage{amsmath}
+%\usepackage[utf8]{inputenc} % Required for German umlauts
+\usepackage{amsmath, bm}
 % SVG
 \usepackage{svg}
 % Bib
@@ -35,14 +35,15 @@
 % Font
 %
 \usepackage{fontspec}
-%\defaultfontfeatures{Mapping=tex-text,Scale=MatchLowercase}
 \setmainfont{Palatino Linotype}
-%\setmonofont{Lucida Sans Typewriter}
-%%
-%% Custom commands
-%%
+%
+% Custom commands
+%
 \input{commands.tex}
 
+%%%%%%%
+%%%%%%% Begin of document
+%%%%%%%
 
 \author{Stanislaw Hüll}
 \title{Student Research Project}
@@ -53,35 +54,43 @@
 
 \section{Introduction}
 
-  \subsection{Compressed Sparse Row Format}
-    It is a widely used storage format for sparse matrices which does not make assumptions about the matrix's shape
-    or its distribution of non-zero elements in contrast to other popular sparse matrix storage formats such as the
-    the diagonal storage format or ELLPACK. It optimizes the storage requirements of general sparse matrices with
-    respect to the naive coordinate format (COO) in that each non-zero's row index is no longer explicitly stored.
+  \subsection{Compressed Sparse Row Matrix Storage Format}
 
-    The CSR format consists of three dense arrays:
+    The compressed sparse row (CSR) format is a widely used storage format for sparse matrices. Unlike other popular sparse matrix storage formats such as the diagonal storage format (DIA) the CSR format is not tailored to any special type of matrix but is a general purpose storage format which makes no assumptions about the matrix's shape or its distribution of non-zeros. The CSR format can be considered an improvement to the naive coordinate format (COO) in that each non-zero's row index is no longer explicitly stored \cite{Bell2011}.
 
-    The values array stores the numerical value for each non-zero entry in the matrix while their column index is stored
-    in the associated column-index array. A third array, the row-pointer array, encodes the beginning of each row's
-    section within the values and column-index arrays, i.e. it stores the offset of each row's first non-zero element
-    into the two previous arrays. Thus the CSR format optimizes the storage requirements of general sparse matrices with
-    respect to the naive coordinate format (COO) in that each-nonzero's row index is no longer explicitly stored,
-    shrinking the size of the third array from one entry per non-zero element to a single entry per row.
+    The CSR format consists of three dense arrays. The values array (V) stores the numerical value for each non-zero entry in the matrix while the associated column index is stored in the column-index array (CI). A third array, the row-pointer array (RP), encodes the beginning of each row's section within the values and column-index arrays, i.e. it stores the offset of each row's first non-zero element into the two arrays. By convention the row-pointer array usually also contains an additional element denoting the total number of non-zero elements in the matrix. An example for the CSR format is given in Figure \ref{fig:csr_example}.
 
+    \begin{figure}[ht]
+      \centering
+      \begin{minipage}{0.4\textwidth}
+        \centering
+        $$
+        \begin{pmatrix}
+          \color{red}{\bm{3}} &                     0 &  \color{red}{\bm{4}} &                    0 \\
+                            0 & \color{green}{\bm{1}} &                    0 &                    0 \\
+                            0 &                     0 & \color{blue}{\bm{7}} & \color{blue}{\bm{8}} \\
+        \end{pmatrix}
+        $$
+      \end{minipage}
+      \begin{minipage}{0.4\textwidth}
+        \centering
+        $$
+        \begin{matrix}
+          \text{Values}  & : & \color{red}{3} &   \color{red}{4} & \color{green}{1} & \color{blue}{7} & \color{blue}{8} \\
+          \text{Column-Indices} & : & \color{red}{0} &   \color{red}{2} & \color{green}{1} & \color{blue}{2} & \color{blue}{3} \\
+          \text{Row-Pointers} & : & \color{red}{0} & \color{green}{2} &  \color{blue}{3} &               5 &                 \\
+        \end{matrix}
+        $$
+      \end{minipage}
+      \caption{Exemplary sparse matrix with corresponding CSR representation. The array elements are color-coded in red for the first row, green for the second row and blue for the third row.}
+      \label{fig:csr_example}
+    \end{figure}
 
-    By convention, the non-zeros are stored row-wise in ordered fashion from left to right implying that each row's
-    section within the column-index array is sorted in ascending fashion. Additionally, the row-pointer array contains
-    an additional element denoting the total number of non-zero elements in the structure. Note that sometimes a
-    different nomenclature is utilized in the existing literature, referring to the arrays as A (values), JA
-    (column-indices) and IA (row-pointers), respectively \cite{sparskit}.
+    Thus, as previously mentioned, the CSR format optimizes the storage requirements of general sparse matrices with respect to the naive coordinate format (COO) shrinking the size of the third array from one entry per non-zero element to a single entry per row irrespective of the row's number of non-zeros. Furthermore, the existing literature, in part, utilizes a different nomenclature referring to the arrays as A (values array), JA (column-index array) and IA (row-pointer array), respectively \cite{sparskit}.
 
-    The CSR format's salient feature is its direct access to a row's non-zero elements' values and column indices making
-    it particularly well suited for matrix-vector-multiplication utilizing a conventional row-by-column computation
-    scheme. Aside of this feature storing the non-zero elements row by row as opposed to column by column is, to a
-    certain degree, arbitrary and thus exist numerical libraries and toolkits such as the Eigen C++ library
-    \cite{eigen:website} or the Harwell-Boeing sparse matrix collection \cite{harwell-boeing} which utilize the CSR
-    format's conjugate, the compressed sparse column format (CSC), as their default means of representing sparse
-    matrices.
+    The CSR format's salient feature is the contiguousness of the rows' non-zero elements' values and column indices making it particularly well suited for matrix-vector-multiplication utilizing a conventional row-by-column computation scheme due to ideal data locality. Aside of this characteristic storing the non-zero elements row-by-row as opposed to column-by-column is, to a certain degree, arbitrary and thus exist numerical libraries and toolkits such as the Eigen C++ library \cite{eigen:website} or the Harwell-Boeing sparse matrix collection \cite{harwell-boeing} which utilize the CSR format's conjugate, the compressed sparse column format (CSC), as their default means of storing sparse matrices.
+
+    The CSR format serves as a starting point for the C3SR sparse matrix storage format for structured grid matrices which is the focal point of this work.
 
   \subsection{Structured Grid Matrices}
 
