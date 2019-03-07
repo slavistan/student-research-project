@@ -21,6 +21,7 @@
 \usepackage[onehalfspacing]{setspace}
 \usepackage{parskip}
 %
+\usepackage{enumitem} % description alignment
 
 %
 % Tikz Setup
@@ -131,7 +132,7 @@
 
     The solution procedure yields a sparse linear system whose solution is approximated by iterative methods involving repeated sparse matrix-vector-multiplications $Ax = b$ where the matrix $A$ encodes the adjacency structure of the grid. For a structured grid the resulting matrix's distribution of non-zeros has a very distinct pattern. Generally speaking, such matrices consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes. A grid and its corresponding sparse matrix's structure are depicted in Figure \ref{fig:laplacian_example} for a simple Laplacian problem.
 
-    The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' discretization schemes. In general, the non-zeros' numeric values are independent from their location within the matrix but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields structured matrices whose 'elements' are themselves square matrices \cite{Godwin2013}.
+    The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' discretization schemes. In general, the non-zeros' numeric values are independent from their location within the matrix but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields structured grid matrices whose 'elements' are themselves square matrices \cite{Godwin2013}.
 
     The sparse matrices relevant to this work areany sparse matrices which contain one or more sets of rows whose non-zero's column indices are identical save for a fixed offset. Structured grid matrices arising from the procedure mentioned above have one such set to which the overwhelming majority of rows belong corresponding to all inner grid nodes (such as in the example in Figure \ref{fig:laplacian_example}). However, all of the ideas presented hereinafter may be applied to any sparse matrix whose structure exhibits any degree of repetiveness.
 
@@ -139,24 +140,38 @@
 
   Evidently, representing a structured grid matrix using the regular CSR format is highly suboptimal, as it has no means of capturing the apparent repetetiveness of the structure. While at first glance the diagonal format might seem an appealing choice for the types of matrices introduced in the previous section, real-life problems produce matrices which are possibly only locally structured, i.e. they contain multiple fully structured sections corresponding to the multiple structured grid regions of the overall heterogeneous domain (Figure \ref{fig:refined_structured_grid}), which need not be aligned in a way to produce a diagonal structure at all. For such matrices the diagonal storage format is highly suboptimal \cite{Bell2011}. Thus a more flexible approach is taken adapting the CSR format to suit the characteristics of structured grid matrices.
 
-  This section introduces the data layout and the matrix-vector multiplication scheme of the threefold compressed sparse row matrix storage format (C3SR). Its aim is to optimize arithmetic performance of matrix-vector multiplications involving structured grid matrices by improving data locality through a structurally-aware space-saving storage scheme and by implementation of an efficient arithmetic scheme capable of profiting from modern computer architectures' hardware assets.
+  This section introduces the data layout and the matrix-vector multiplication scheme of the threefold compressed sparse row matrix storage format (C3SR). Its aim is to optimize arithmetic performance of matrix-vector multiplications involving structured grid matrices by improving data locality through a structurally-aware space-saving storage scheme and by implementing an efficient arithmetic scheme capable of profiting from modern computer architectures' hardware assets.
 
   \subsection{Data layout and storage scheme}
 
     // TODO: Section with nomenclature - structure, pattern, ...
 
-    It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values need not be similar to each other at all and, possibly, even vice versa. To prevent that a lack of common regularity impedes optimizing the storage requirements of one or the other it is hence necessary to decouple the representation of a row's column index positions from the representation of its numerical values. The C3SR format accounts for this circumstance and maintains separate data structures for the patterns and values.
+    It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values need not be similar to each other at all. To prevent that a lack of common regularity impedes optimizing the storage requirements of one or the other it is hence necessary to decouple the representation of a row's column index positions from the representation of its numerical values. The C3SR format accounts for this circumstance and maintains separate data structures for the column indices and non-zeros' numeric values.
 
-    //TODO Erst colindices einführen, dann values und darauf hinweise, dass VS redundant ist, falls keine values
-    compression erwünscht ist.
+    Based on the observation that structured grid matrices contains many rows whose non-zeros are located at the same positions except for a possible offset the C3SR format decomposes the column-index positions into the column index of the row's first non-zero element, referred to as the row's peg hereinafter, and the relative column indices of all of the row's non-zeros with respect to the first non-zeros column index, i.e. the relative offsets with respect to the peg index. The latter column index offsets relative to the peg index shall be called the row's column index pattern, or simply the row's pattern. Naturally, only unique patterns are stored, drastically shrinking the storage requirements of such matrices whose majority of rows exhibit the same pattern.
 
-    The values are represented by two arrays which utilize the CSR's basic idea of storing all relevant data in an array (V) and managing a separate start-index array (VS) pointing each row's section's first element.
+    Thus, in order to represent the column indices of a matrix row's non-zeros the C3SR format utilizes three arrays:
+
+    \begin{description}[align = left, labelwidth = 4cm]
+      \item [JP - \emph{Peg column index}] \hfill \\
+        Column index of each row's first non-zero. One element per row in matrix.
+      \item [J - \emph{Column index patterns}] \hfill \\
+        Column index position offsets relative to peg column index. Only unique patterns are stored.
+      \item [JS - \emph{Pattern index pointer}] \hfill \\
+        Index pointer to each row's first element within \J. One element per row in matrix.
+    \end{description}
+
+    row. In contrast to the CSR format, however, the non-zeros' column-index positions are decomposed into the column index of the row's first non-zero element, referred to as the row's peg hereinafter, and the relative column indices of all of the row's non-zeros with respect to the first non-zero's column index, i.e. the relative offsets with respect to the peg index.
+
+    /TODO? Nomenclature section after abstract?
+    
+    abiding by the same principle with the additional detail that each row's column indices are decomposed into the absolute index of the row's first non-zero element, which is referred to as the row's 'peg', and the relative offsets of the remaining non-zeros' column indices with respect to the peg index.  This introduces a degree of freedom whose usefulness will become evident in the context of compression. Thus the column indices are encoded into an array storing the patterns (J), another array storing the peg index (JP) and an index pointer array (JS) into J in the same way that VS relates to V.
+
+      ((( TODO: Bild )))
+    The values are represented abiding by the same principle by two arrays which utilize the CSR's basic idea of storing all relevant data in an array (V) and managing a separate start-index array (VS) pointing each row's section's first element.
 
       ((( TODO: Bild. Einfache matrix mit values )))
 
-    The column indices are stored abiding by the same principle with the additional detail that each row's column indices are decomposed into the absolute index of the row's first non-zero element, which is referred to as the row's 'peg', and the relative offsets of the remaining non-zeros' column indices with respect to the peg index.  This introduces a degree of freedom whose usefulness will become evident in the context of compression. Thus the column indices are encoded into an array storing the patterns (J), another array storing the peg index (JP) and an index pointer array (JS) into J in the same way that VS relates to V.
-
-      ((( TODO: Bild )))
 
     A sixth and final array (RS) is used to encode the number of non-zeros in each row of the matrix in order to know the size of the row's section within the pattern array and the values array. The RS array is an immediate copy of the CSR format's row-pointer array.  While the respective start index-pointer arrays store the section's first element's index they cannot encode the size of the section. Prior to compressing the size of a row can indeed be retrieved from the corresponding start index-pointer array in the same way the CSR format's row size may be retrieved from the row-pointer array by taking the difference between the row's entry and its successor, however, this requires that the row's sections are stored contiguously in the arrays and this property is lost during compression as will be explained in the next section.
 
