@@ -82,7 +82,7 @@
         \end{matrix}
         $$
       \end{minipage}
-      \caption{Exemplary sparse matrix with corresponding CSR representation. The array elements are color-coded in red for the first row, green for the second row and blue for the third row.}
+      \caption{\textbf{Exemplary matrix with corresponding CSR representation.} The array elements are color-coded in red for the first row, green for the second row and blue for the third row.}
       \label{fig:csr_example}
     \end{figure}
 
@@ -135,22 +135,15 @@
 
     The sparse matrices relevant to this work areany sparse matrices which contain one or more sets of rows whose non-zero's column indices are identical save for a fixed offset. Structured grid matrices arising from the procedure mentioned above have one such set to which the overwhelming majority of rows belong corresponding to all inner grid nodes (such as in the example in Figure \ref{fig:laplacian_example}). However, all of the ideas presented hereinafter may be applied to any sparse matrix whose structure exhibits any degree of repetiveness.
 
-\section{Three-fold compressed sparse row}
+\section{Threefold Compressed Sparse Row Sparse Matrix Storage Format (C3SR)}
 
-// TODO: Section with nomenclature
-  - structure, pattern, ...
+  Evidently, representing a structured grid matrix using the regular CSR format is highly suboptimal, as it has no means of capturing the apparent repetetiveness of the structure. While at first glance the diagonal format might seem an appealing choice for the types of matrices introduced in the previous section, real-life problems produce matrices which are possibly only locally structured, i.e. they contain multiple fully structured sections corresponding to the multiple structured grid regions of the overall heterogeneous domain (Figure \ref{fig:refined_structured_grid}), which need not be aligned in a way to produce a diagonal structure at all. For such matrices the diagonal storage format is highly suboptimal \cite{Bell2011}. Thus a more flexible approach is taken adapting the CSR format to suit the characteristics of structured grid matrices.
 
-  Evidently, representing a structured grid's adjacency matrix using the regular CSR format is highly suboptimal, as it has no means of capturing the apparent repetetiveness of the structure. While at first glance the diagonal format might seem an appealing choice for the types of matrices introduced in the previous section, real-life problems produce matrices which are only locally structured, i.e. they contain multiple fully structured sections corresponding to the multiple structured grid regions of the overall heterogeneous domain mentioned above, which need not be aligned in a way to produce a diagonal structure at all. Thus a more flexible approach is taken adapting the CSR format.
-
-  Additionally, utilizing a CSR-like format keeps open the possibility to eventually tackle adjacency matrices of
-  unstructured grids.
-
-  This section introduces the data layout and storage scheme of the three-fold compressed sparse row format which allows
-  for the utilization of certain compression mechanisms explained thereafter. Finally, the algorithms required to
-  perform common arithmetic operations are presented.
+  This section introduces the data layout and the matrix-vector multiplication scheme of the threefold compressed sparse row matrix storage format (C3SR). Its aim is to optimize arithmetic performance of matrix-vector multiplications involving structured grid matrices by improving data locality through a structurally-aware space-saving storage scheme and by implementation of an efficient arithmetic scheme capable of profiting from modern computer architectures' hardware assets.
 
   \subsection{Data layout and storage scheme}
 
+    // TODO: Section with nomenclature - structure, pattern, ...
 
     It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values need not be similar to each other at all and, possibly, even vice versa. To prevent that a lack of common regularity impedes optimizing the storage requirements of one or the other it is hence necessary to decouple the representation of a row's column index positions from the representation of its numerical values. The C3SR format accounts for this circumstance and maintains separate data structures for the patterns and values.
 
