@@ -144,11 +144,9 @@
 
   \subsection{Data layout and storage scheme}
 
-    // TODO: Section with nomenclature - structure, pattern, ...
+    It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values need not be similar to each other at all. To prevent that a lack of common regularity impedes optimizing the storage requirements of one or the other it is hence necessary to decouple the representation of a row's non-zeros column index positions from the representation of their numerical values. The C3SR format accounts for this circumstance and maintains separate data structures for the non-zeros' column indices and their values.
 
-    It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values need not be similar to each other at all. To prevent that a lack of common regularity impedes optimizing the storage requirements of one or the other it is hence necessary to decouple the representation of a row's column index positions from the representation of its numerical values. The C3SR format accounts for this circumstance and maintains separate data structures for the column indices and non-zeros' numeric values.
-
-    Based on the observation that structured grid matrices contains many rows whose non-zeros are located at the same positions except for a possible offset the C3SR format decomposes the column-index positions into the column index of the row's first non-zero element, referred to as the row's peg hereinafter, and the relative column indices of all of the row's non-zeros with respect to the first non-zeros column index, i.e. the relative offsets with respect to the peg index. The latter column index offsets relative to the peg index shall be called the row's column index pattern, or simply the row's pattern. Naturally, only unique patterns are stored, drastically shrinking the storage requirements of such matrices whose majority of rows exhibit the same pattern.
+    Based on the observation that structured grid matrices contain many rows whose non-zeros are located at the same positions except for a possible offset the C3SR format decomposes the column-index positions into the column index of the row's first non-zero element, referred to as the row's peg hereinafter, and the relative column indices of all of the row's non-zeros with respect to the first non-zero's column index, i.e. the relative offsets with respect to the peg index. The latter column index offsets relative to the peg index shall be called the row's column index pattern, or simply the row's pattern. Naturally, only unique patterns are stored, drastically shrinking the storage requirements of such matrices whose majority of rows exhibit the same pattern.
 
     Thus, in order to represent the column indices of a matrix row's non-zeros the C3SR format utilizes three arrays:
 
@@ -156,31 +154,62 @@
       \item [JP - \emph{Peg column index}] \hfill \\
         Column index of each row's first non-zero. One element per row in matrix.
       \item [J - \emph{Column index patterns}] \hfill \\
-        Column index position offsets relative to peg column index. Only unique patterns are stored.
+        Column index position offsets of the rows' non-zeros relative to peg column index for each row. Only unique patterns are stored.
       \item [JS - \emph{Pattern index pointer}] \hfill \\
         Index pointer to each row's first element within \J. One element per row in matrix.
     \end{description}
 
-    row. In contrast to the CSR format, however, the non-zeros' column-index positions are decomposed into the column index of the row's first non-zero element, referred to as the row's peg hereinafter, and the relative column indices of all of the row's non-zeros with respect to the first non-zero's column index, i.e. the relative offsets with respect to the peg index.
+    \begin{figure}[ht]
+      \centering
+      \begin{minipage}{0.4\textwidth}
+        \centering
+        $$
+        \begin{pmatrix}
+          0 & \bullet & 0 & \bullet & \bullet & 0 \\
+          0 & \bullet & 0 & 0 & \bullet & 0 \\
+          0 & 0 & \bullet & 0 & \bullet & \bullet \\
+        \end{pmatrix}
+        $$
+      \end{minipage}
+      \begin{minipage}{0.4\textwidth}
+        \centering
+        $$
+        \begin{matrix}
+          \JP & : & 1 & 0 & 2 &   &   \\
+           \J & : & 0 & 2 & 3 & 0 & 3 \\
+          \JS & : & 0 & 3 & 0 &   &   \\
+        \end{matrix}
+        $$
+      \end{minipage}
+      \caption{\textbf{Matrix with corresponding C3SR representation (structural information only).} The non-zeros are denoted as black dots. The $0^{\text{th}}$ and $2^{\text{th}}$ row exhibit the same column index pattern $\big(0,2,3\big)$ at different peg index positions of $1$ and $2$, respectively, thus the $0^{\text{th}}$ and the $2^{\text{th}}$ element of \JS point \J[0], which is the first element of this unique pattern. The $1^{\text{th}}$ row has a unique pattern which is stored after the previous pattern within \J at offset $3$ which \JS[1] accordingly points.}
+      \label{fig:c3sr_example_structure}
+    \end{figure}
 
-    /TODO? Nomenclature section after abstract?
-    
-    abiding by the same principle with the additional detail that each row's column indices are decomposed into the absolute index of the row's first non-zero element, which is referred to as the row's 'peg', and the relative offsets of the remaining non-zeros' column indices with respect to the peg index.  This introduces a degree of freedom whose usefulness will become evident in the context of compression. Thus the column indices are encoded into an array storing the patterns (J), another array storing the peg index (JP) and an index pointer array (JS) into J in the same way that VS relates to V.
+    The matrix's non-zeros' numerical values are represented using two dense arrays \V, which contains the values and \VS, the index-pointer into \V which relates to \V in the same way \JS relates to \J. If multiple rows exhibit the same pattern and their values match at the same time the values are stored only once within \V which allows for efficient matrix-vector multiplication schemes shown below.
 
-      ((( TODO: Bild )))
-    The values are represented abiding by the same principle by two arrays which utilize the CSR's basic idea of storing all relevant data in an array (V) and managing a separate start-index array (VS) pointing each row's section's first element.
+    \begin{description}[align = left, labelwidth = 4cm]
+      \item [\V - \emph{Values}] \hfill \\
+        Non-zeros' numerical values. Duplicates across rows with same pattern are stored only once.
+      \item [\VS - \emph{Values Index Pointer}] \hfill \\
+        Index pointer to each row's first element within \V. One element per row in matrix.
+    \end{description}
 
-      ((( TODO: Bild. Einfache matrix mit values )))
+    A sixth and final array \RSS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but may not contain the information about how long the segment pertaining to the row within those arrays.
 
-
-    A sixth and final array (RS) is used to encode the number of non-zeros in each row of the matrix in order to know the size of the row's section within the pattern array and the values array. The RS array is an immediate copy of the CSR format's row-pointer array.  While the respective start index-pointer arrays store the section's first element's index they cannot encode the size of the section. Prior to compressing the size of a row can indeed be retrieved from the corresponding start index-pointer array in the same way the CSR format's row size may be retrieved from the row-pointer array by taking the difference between the row's entry and its successor, however, this requires that the row's sections are stored contiguously in the arrays and this property is lost during compression as will be explained in the next section.
+    \begin{description}[align = left, labelwidth = 4cm]
+      \item [\RSS - \emph{Row Size}] \hfill \\
+        Number of non-zeros for each row. One element per row in matrix.
+    \end{description}
 
     Summarizing the data organization of the C3SR format:
+
     \begin{itemize}
       \item Data representing the matrix's non-zero elements: V, VS
       \item Data representing non-zero elements' column indices: J, JP, JS
       \item Array containing information about the row sizes: RSS
     \end{itemize}
+
+    /TODO? Nomenclature section after abstract?
 
   \subsection{Compression mechanism}
 
@@ -426,6 +455,7 @@ OVERALLTODO:
     - KNL: Falls Chunks zu groß werden fällt Working Set aus Cache
     - Wozu Partitionierung --> Threads können parallel arbeiten
     - Throughput-Abschätzung (Bewegte Datenmenge aus DRAM / Dauer); A,x,y (jedes Element wird ~1 mal ausgelesen)
+    - RSS --> RS
 
 \printbibliography
 \end{document}
