@@ -159,6 +159,8 @@
         Index pointer to each row's first element within \J. One element per row in matrix.
     \end{description}
 
+    An example matrix and its corresponding structural information are given in Figure \ref{fig:c3sr_example_structure}.
+
     \begin{figure}[ht]
       \centering
       \begin{minipage}{0.4\textwidth}
@@ -194,72 +196,80 @@
         Index pointer to each row's first element within \V. One element per row in matrix.
     \end{description}
 
-    A sixth and final array \RSS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but may not contain the information about how long the segment pertaining to the row within those arrays.
+    A sixth and final array \RS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but may not contain the information about how long the segment pertaining to the row within those arrays is.
 
     \begin{description}[align = left, labelwidth = 4cm]
-      \item [\RSS - \emph{Row Size}] \hfill \\
+      \item [\RS - \emph{Row Size}] \hfill \\
         Number of non-zeros for each row. One element per row in matrix.
     \end{description}
 
-    Summarizing the data organization of the C3SR format:
+    Another exemplary matrix and its full C3SR format representation are given in Figure \ref{fig:c3sr_example_full}.
 
-    \begin{itemize}
-      \item Data representing the matrix's non-zero elements: V, VS
-      \item Data representing non-zero elements' column indices: J, JP, JS
-      \item Array containing information about the row sizes: RSS
-    \end{itemize}
+    \begin{figure}[ht]
+      \centering
+      \begin{minipage}{0.4\textwidth}
+        \centering
+        $$
+        \begin{pmatrix}
+          1 & 2 & 0 & 3 & 0 & 0 \\
+          0 & 1 & 2 & 0 & 3 & 0 \\
+          0 & 0 & 4 & 5 & 0 & 0 \\
+          0 & 0 & 6 & 7 & 0 & 0 \\
+        \end{pmatrix}
+        $$
+      \end{minipage}
+      \begin{minipage}{0.4\textwidth}
+        \centering
+        $$
+        \begin{matrix}
+          \JP & : & 0 & 1 & 2 & 2 &   &   &   \\
+           \J & : & 0 & 1 & 3 & 0 & 1 &   &   \\
+          \JS & : & 0 & 0 & 3 & 3 &   &   &   \\
+           \V & : & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
+          \VS & : & 0 & 0 & 3 & 5 &   &   &   \\
+         \RS & : & 3 & 3 & 2 & 2 &   &   &   \\
+        \end{matrix}
+        $$
+      \end{minipage}
+      \caption{\textbf{Matrix with corresponding full C3SR representation.} The $0^{\text{th}}$ and $2^{\text{th}}$ rows exhibit the same pattern and the same values, thus the values are stored only once. The last two rows also share a common pattern with different values.}
+      \label{fig:c3sr_example_full}
+    \end{figure}
 
     /TODO? Nomenclature section after abstract?
-
-  \subsection{Compression mechanism}
-
-    Using this storage scheme the column index information may be compressed by removing duplicate patterns from J and
-    updating the start-index pointers JS of such duplicate rows to point the start of the corresponding unique section
-    within J.
-
-      ((( TODO: Bild )))
-
-    The information about the non-zeros' values can be compressed in precicely the same way: Duplicate sections within V
-    corresponding to different rows with identical values are removed and the corresponding start pointers are updated.
-
-    In theory, the compression of patterns and values are orthogonal operations and if the overall goal were to minimize
-    the storage requirement of a C3SR object in memory the best advice would be to exploit duplication in the matrix as
-    much as possible. However, efficient arithmetic requires considerations going beyond maximum compression such as
-    parallel performance and parallel scalability implying that the implementation must heed the principles of
-    data locality and independence of tasks in the control flow of the algorithm.
-
-    (((TODO: Partitioning during compression + stable- and non-stable values compression)))
-
-    Note that this section avoids reasoning about low-level details for the sake of clarity. Tweaks such as the omission
-    of each pattern's first value, which is always zero or mapping two partially matching rows' sections within J onto
-    each other for a little gain in storage space optimization are considered implementation details are are not discussed
-    here.
+    /TODO: 3fold -compression erklären :p
 
   \subsection{Matrix-Vector Multiplication}
 
-    \subsubsection{Basic CSR Multiplication scheme}
+    \subsubsection{Basic CSR Multiplication Scheme}
 
-      Algorithmically, the basic multiplication schemes of the C3SR format and the CSR format are very similar. Both access their respective non-zeros by an index pointer into an array and compute the argument vector's access index in the same manner. Differences arise only in the C3SR's additional offset $\JP[k]$ which is applied to each relative column index.
+      Algorithmically, the basic row-by-column matrix-vector multiplication scheme of the C3SR format is similar to that of the CSR format (Figure \ref{fig:c3sr_matvecmult_basic}). Differences arise only in the C3SR's additional offset $\JP[k]$ which is applied to each relative column index prior to accessing the argument vector $x$.
 
-      C3sr:
-      $$\sum \limits_{\alpha = 0}^{\RSS[k] - 1} \V[\VS[k] + \alpha] \cdot x[\J[\JS[k] + \alpha] + \JP[k]]$$
+      As the C3SR format utilizes additional arrays to store index-pointers the number of memory accesses increases likewise. Assuming a general case of a large sparse matrix devoid of any regularity in its structue whose size exceeds the machine's cache the CSR format's arithmetic performance will be better proportional to the reduction of loads from memory with respect to the C3SR format as this is a memory bound computation involving few trivial arithmetic operations.
 
-      CSR:
-      $$\sum \limits_{\alpha = 0}^{\RP[k] - 1} \V[\RP[k] + \alpha] \cdot x[\CI[\RP[k] + \alpha]]$$
+      \begin{figure}[ht]
+        \centering
+        $$
+        \begin{matrix}
+          \text{CSR}  & : & \sum \limits_{\alpha = 0}^{\RP[k+1] - \RP[k] - 1} & \bigg( & \V[\RP[k] + \alpha]   & \cdot & x\big[\CI[\RP[k] + \alpha]\big] & \bigg)\\
+          \vspace{0.3cm} \\
+          \text{C3SR} & : & \sum \limits_{\alpha = 0}^{\RS[k] - 1} & \bigg( & \V\big[\VS[k] + \alpha\big] & \cdot & x\bigg[\J\big[\JS[k] + \alpha\big] + \JP[k]\bigg] & \bigg) \\
+        \end{matrix}
+        $$
+        \caption{\textbf{Matrix-vector multiplication schemes of C3SR and CSR format in comparison.} $k^{\text{th}}$ component of the product $Ax$ is shown. The C3SR format accesses \V and \J from their dedicated index-pointer arrays while the CSR format utilizes one common row-pointer array. Additionally, the C3SR format requires the relative column indices to be offset by the peg column index for each row.}
+        \label{fig:c3sr_matvecmult_basic}
+      \end{figure}
 
-      However, the fact that the C3SR format utilizes additional data structures to store information leads to additional accesses to memory. Assuming the general case of a large matrix devoid of any regularity in its structue whose size exceeds the machine's cache the CSR format's arithmetic performance will be better proportional to the reduction of loads from memory with respect to the C3SR format as this is a memory bound computation involving few trivial arithmetic operations.
-
-      On the flipside, structured matrices facilitate an optimized representation allowing a small segment of memory, corresponding to possibly only a few cache lines, to contain the matrix's complete structural information. This can drastically improve arithmetic performance of the C3SR format despite the more complex memory access scheme, as will be shown in the benchmark section.
+      On the flipside, structured matrices facilitate very compact storage allowing a small segment of memory, corresponding to possibly only a few cache lines, to contain the matrix's complete structural information and, depending on the underlying physical problem, even the numeric values. This can drastically improve arithmetic performance of the C3SR format despite the more complex memory access scheme, as will be shown in the benchmark section.
 
     \subsubsection{SIMD Implementation}
 
-      In addition to the performance gain utilizing the basic multiplication scheme, the data layout of a structured matrix in C3SR format allows for the matrix-vector multiplication to be implemented in such a way, as to utilize SIMD parallelism. The matrix's data is layed out in memory in such a way that the matrix-vector multiplication may be performed for multiple rows at a time using vectorization. Depending on the composition of the matrix three different, yet very similar, multiplication schemes can be devised.
+      In addition to the performance gain utilizing the basic multiplication scheme, the data layout of a structured matrix in C3SR format allows for the matrix-vector multiplication to be implemented utilizing SIMD parallelism. The matrix's data is layed out in memory in such a way that the matrix-vector multiplication may be performed for multiple rows at a time using vectorization. Depending on the composition of the matrix corresponding to the types of problems mentioned in the introduction three different but very similar multiplication schemes can be devised.
 
-      Suppose that a horizontal slice of rows $r, \ldots, r+k$ has diagonal structure with the diagonals starting at indices $s, t, \ldots, u$, such as is depicted in TODO. The matrix-vector multiplication for each of the slice's rows is composed of the same number of summands, one per diagonal. Each of the summands is a product of the diagonal's non-zero entry and the argument's corresponding element, starting out with $a_{r,s} \cdot x_s$ for the first diagonal's initial element and $a_{r,t} \cdot x_t$ for the second diagonal. For each subsequent row the matrix element's indices are incremented aswell as the argumnet vector's index, commencing with $a_{r+1, s_1} \cdot x_{s+1}$ for the first diagonal's second element and accordingly for each other diagonal.
+      Suppose that a horizontal slice of rows $r, \ldots, r+k$ has diagonal structure with the diagonals starting at indices $s, t, \ldots, u$, such as is depicted in Figure \ref{fig:simd_scheme_diag}. The matrix-vector multiplication for each of the slice's rows is composed of the same number of summands, one per diagonal. Each of the summands is a product of the diagonal's non-zero entry and the argument's corresponding element, starting out with $a_{r,s} \cdot x_s$ for the first diagonal's initial element and $a_{r,t} \cdot x_t$ for the second diagonal. For each subsequent row the matrix element's indices are incremented aswell as the argument vector's index, commencing with $a_{r+1, s_1} \cdot x_{s+1}$ for the first diagonal's second element and accordingly for each other diagonal.
 
-      As each diagonal's summand accesses the argument vector's elements in consecutive fashion, for example $x_s, x_{s+1}, \ldots, x_{s + k}$ for the first diagonal, the multiplication can be vectorized. The other summand's constituents, the diagonal's matrix entries, are accessed at a fixed offset which is equal to the number of diagonals. This is due to the fact that the matrix slice's non-zero elements are stored row-by-row, where each row has the same number of elements. Thus $a_{r,s}$ is located as many elements before $a_{r+1, r+2}$ within \V as there are diagonals. 
-
-      \begin{equation}
+      \begin{figure}[ht]
+        \centering
+        $$
         \begin{pmatrix}
           \\
           \cdots & 0 & \tikzmark{diagAFirst}{a_{r,s}} &  0 & \cdots & \tikzmark{diagBFirst}{a_{r,t}} & 0 & \cdots & \cdots & \cdots \\
@@ -267,14 +277,17 @@
           \cdots & \cdots & \cdots & 0 & \tikzmark{diagALast}{a_{r+2,s+2}} & 0 & \cdots & \tikzmark{diagBLast}{a_{r+2,t+2}} & 0 & \cdots \\
           \\
         \end{pmatrix}
-      \end{equation}
-
-      \begin{tikzpicture}[overlay,remember picture]
-           \draw[color=red,opacity=0.1,line width=1mm,line cap=round] (diagAFirst.center) -- (diagALast.center);
-           \draw[color=green,opacity=0.1,line width=1mm,line cap=round] (diagBFirst.center) -- (diagBLast.center);
-      \end{tikzpicture}
-
-      \begin{equation}
+        \begin{tikzpicture}[overlay,remember picture]
+             \draw[color=red,opacity=0.1,line width=1mm,line cap=round] (diagAFirst.center) -- (diagALast.center);
+             \draw[color=green,opacity=0.1,line width=1mm,line cap=round] (diagBFirst.center) -- (diagBLast.center);
+        \end{tikzpicture}
+        $$
+        $$
+        \V: \begin{pmatrix}
+          \ldots & a_{r,s} & a_{r,t} & \ldots & a_{r+1,s+1} & a_{r+1,t+1} & \ldots & a_{r+2,s+2} & a_{r+2,t+2} & \ldots \\
+        \end{pmatrix}
+        $$
+        $$
         \begin{matrix}
           \begin{bmatrix}
             a_{r,s}     \\
@@ -301,16 +314,9 @@
                                                                                                                  y_{r+1} \\
                                                                                                                  \vdots \\
                                                                                                                  y_{r+k}
-                                                                                                                \end{bmatrix}
-        \end{matrix}
-      \end{equation}
+                                                                                                                \end{bmatrix}\\
 
-      In SIMD terms a stride-gather and a load is required for the diagonal's elements and the argument vector, respectively. The two vector registers are then multiplied and the result is then added onto the product pertaining to the next diagonal, as depicted in TODO.
-
-      For the case of a matrix slice whose structure is diagonal and whose values within each diagonal are identical, e.g. $a_{r,s} = a_{r+1, s+1} = \ldots$ for the first diagonal etc., the multiplication scheme is simplified in that the argument vector's values contained in the vector register are simply scaled by the diagonal's value instead of being subjected by a vectorized multiplication.
-
-      \begin{equation}
-        \begin{matrix}
+          \vspace{0.3cm} \\
           a_{r,s} & \cdot & \begin{bmatrix}
                                     x_s      \\
                                     x_{s+1}  \\
@@ -328,7 +334,16 @@
                                                                                                                  y_{r+k}
                                                                                                                 \end{bmatrix}
         \end{matrix}
-      \end{equation}
+        $$
+        \caption{dingo}
+        \label{fig:simd_scheme_diag}
+      \end{figure}
+
+      As each diagonal's summand accesses the argument vector's elements in consecutive fashion, for example $x_s, x_{s+1}, \ldots, x_{s + k}$ for the first diagonal, the multiplication can be vectorized. The other summand's constituents, the diagonal's elements, are accessed at a fixed offset which is equal to the number of diagonals. This is due to the fact that the matrix slice's non-zero elements are stored row-by-row, where each row has the same number of elements. Thus $a_{r,s}$ is located as many elements before $a_{r+1, r+2}$ within \V as there are diagonals. 
+
+      In SIMD terms a stride-gather and a load is required for the diagonal's elements and the argument vector, respectively. The two vector registers are then multiplied and the result is then added onto the product pertaining to the next diagonal, as depicted in TODO.
+
+      For the case of a matrix slice whose structure is diagonal and whose values within each diagonal are identical, e.g. $a_{r,s} = a_{r+1, s+1} = \ldots$ for the first diagonal etc., the multiplication scheme is simplified in that the argument vector's values contained in the vector register are simply scaled by the diagonal's value instead of being subjected to a vectorized multiplication (Figure \ref{fig:simd_scheme_diag} bottom).
 
       Another practically relevant case are matrix slices whose structure is uniform, i.e. each row's non-zero elements are situated at the same columns. The corresponding vectorized matrix-vector multiplication scheme is again similar to the general case of a diagonal structure. Here the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again located at fixed offsets within \V  as depicted in TODO.
 
@@ -401,7 +416,7 @@
       J      & 135    & 135 \\
       JS     & 1000000 & 1000000 \\
       JP     & 1000000 & 1000000 \\
-      RSS    & 1000001 & 1000001 \\
+      RS    & 1000001 & 1000001 \\
     \end{tabular}
 
     Note that the ... Daten unterscheiden sich nur in V (--> selbe struktur)
@@ -455,7 +470,6 @@ OVERALLTODO:
     - KNL: Falls Chunks zu groß werden fällt Working Set aus Cache
     - Wozu Partitionierung --> Threads können parallel arbeiten
     - Throughput-Abschätzung (Bewegte Datenmenge aus DRAM / Dauer); A,x,y (jedes Element wird ~1 mal ausgelesen)
-    - RSS --> RS
 
 \printbibliography
 \end{document}
