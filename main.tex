@@ -27,10 +27,11 @@
 % Tikz Setup
 %
 \usepackage{tikz}
-\newcommand{\tikzmark}[2]{
-    \tikz[overlay,remember picture,baseline]
-    \node[anchor=base] (#1) {$#2$};
-}
+\usetikzlibrary{tikzmark}
+%\newcommand{\tikzmark}[2]{
+%    \tikz[overlay,remember picture,baseline]
+%    \node[anchor=base] (#1) {$#2$};
+%}
 \usetikzlibrary{positioning}
 %
 % Font
@@ -263,28 +264,23 @@
 
     \subsubsection{SIMD Implementation}
 
-      In addition to the performance gain utilizing the basic multiplication scheme, the data layout of a structured matrix in C3SR format allows for the matrix-vector multiplication to be implemented utilizing SIMD parallelism. The matrix's data is layed out in memory in such a way that the matrix-vector multiplication may be performed for multiple rows at a time using vectorization. Depending on the composition of the matrix corresponding to the types of problems mentioned in the introduction three different but very similar multiplication schemes can be devised.
+      In addition to the performance gain utilizing the basic multiplication scheme due to better data locality the data layout of a structured matrix in C3SR format allows for the matrix-vector multiplication to be implemented utilizing SIMD parallelism. The matrix's data is layed out in memory in such a way that the matrix-vector multiplication may be performed for multiple rows at a time using vectorization. Depending on the composition of the matrix corresponding to the types of problems mentioned in the introduction three different but very similar multiplication schemes can be devised.
 
-      Suppose that a horizontal slice of rows $r, \ldots, r+k$ has diagonal structure with the diagonals starting at indices $s, t, \ldots, u$, such as is depicted in Figure \ref{fig:simd_scheme_diag}. The matrix-vector multiplication for each of the slice's rows is composed of the same number of summands, one per diagonal. Each of the summands is a product of the diagonal's non-zero entry and the argument's corresponding element, starting out with $a_{r,s} \cdot x_s$ for the first diagonal's initial element and $a_{r,t} \cdot x_t$ for the second diagonal. For each subsequent row the matrix element's indices are incremented aswell as the argument vector's index, commencing with $a_{r+1, s_1} \cdot x_{s+1}$ for the first diagonal's second element and accordingly for each other diagonal.
+      Suppose that a horizontal slice of rows $r, \ldots, r+k$ has diagonal structure with the diagonals starting at indices $s, t, \ldots $, such as is depicted in Figure \ref{fig:simd_scheme_diag}. The matrix-vector multiplication for each of the slice's rows is composed of the same number of summands, one per diagonal. Each of the summands is a product of the diagonal's non-zero entry and the argument's corresponding element, starting out with $a_{r,s} \cdot x_s$ for the first diagonal's initial element and $a_{r,t} \cdot x_t$ for the second diagonal. For each subsequent row the matrix element's indices are incremented aswell as the argument vector's index, commencing with $a_{r+1, s+1} \cdot x_{s+1}$ for the first diagonal's second element and accordingly for each other diagonal.
+
+      As each diagonal's summand accesses the argument vector's elements in consecutive fashion, for example $x_s, x_{s+1}, \ldots, x_{s + k}$ for the first diagonal, the multiplication can be vectorized. The other summand's constituents, the diagonal's elements, are accessed at a fixed offset which is equal to the number of diagonals. This is due to the fact that the matrix slice's non-zero elements are stored row-by-row, where each row has the same number of elements. Thus $a_{r,s}$ is located as many elements before $a_{r+1, r+2}$ within \V as there are diagonals.
+
+      In SIMD terms a stride-gather and a load is required for the diagonal's elements and the argument vector, respectively. The two vector registers are then multiplied and the result is then added onto the next product pertaining to the subsequent diagonal.
 
       \begin{figure}[ht]
         \centering
         $$
         \begin{pmatrix}
           \\
-          \cdots & 0 & \tikzmark{diagAFirst}{a_{r,s}} &  0 & \cdots & \tikzmark{diagBFirst}{a_{r,t}} & 0 & \cdots & \cdots & \cdots \\
+          \cdots & 0 & a_{r,s} & 0 & \cdots & a_{r,t} & 0 & \cdots & \cdots & \cdots \\
           \cdots & \cdots & 0 & a_{r+1,s+1} & 0 & \cdots & a_{r+1,t+1} & 0 & \cdots & \cdots \\
-          \cdots & \cdots & \cdots & 0 & \tikzmark{diagALast}{a_{r+2,s+2}} & 0 & \cdots & \tikzmark{diagBLast}{a_{r+2,t+2}} & 0 & \cdots \\
+          \cdots & \cdots & \cdots & 0 & a_{r+2,s+2} & 0 & \cdots & a_{r+2,t+2} & 0 & \cdots \\
           \\
-        \end{pmatrix}
-        \begin{tikzpicture}[overlay,remember picture]
-             \draw[color=red,opacity=0.1,line width=1mm,line cap=round] (diagAFirst.center) -- (diagALast.center);
-             \draw[color=green,opacity=0.1,line width=1mm,line cap=round] (diagBFirst.center) -- (diagBLast.center);
-        \end{tikzpicture}
-        $$
-        $$
-        \V: \begin{pmatrix}
-          \ldots & a_{r,s} & a_{r,t} & \ldots & a_{r+1,s+1} & a_{r+1,t+1} & \ldots & a_{r+2,s+2} & a_{r+2,t+2} & \ldots \\
         \end{pmatrix}
         $$
         $$
@@ -316,7 +312,37 @@
                                                                                                                  y_{r+k}
                                                                                                                 \end{bmatrix}\\
 
-          \vspace{0.3cm} \\
+        \end{matrix}
+        $$
+        %$$
+        %\V: \begin{pmatrix}
+        %  \ldots & a_{r,s} & a_{r,t} & \ldots & a_{r+1,s+1} & a_{r+1,t+1} & \ldots & a_{r+2,s+2} & a_{r+2,t+2} & \ldots \\
+        %\end{pmatrix}
+        %$$
+        \caption{\textbf{Matrix slice with diagonal structure and corresponding vectorized matrix-vector-multiplication scheme.} Each diagonal's elements are located within \V at a fixed stride offset corresponding to the number of diagonals. Depending on the hardware capabilities this may make the gather-load operation more efficient.}
+        \label{fig:simd_scheme_diag}
+      \end{figure}
+
+      For the case of a matrix slice whose structure is diagonal and whose values within each diagonal are identical, e.g. $a_{r,s} = a_{r+1, s+1} = \ldots$ for the first diagonal etc., the multiplication scheme is simplified in that the argument vector's values contained in the vector register are simply scaled by the diagonal's value instead of being subjected to a vectorized multiplication (Figure \ref{fig:simd_scheme_diag_collated}).
+
+      \begin{figure}[ht]
+        \centering
+        $$
+        \begin{pmatrix}
+          \\
+          \cdots & 0 & a_{r,s} &  0 & \cdots & a_{r,t} & 0 & \cdots & \cdots & \cdots \\
+          \cdots & \cdots & 0 & a_{r+1,s+1} & 0 & \cdots & a_{r+1,t+1} & 0 & \cdots & \cdots \\
+          \cdots & \cdots & \cdots & 0 & a_{r+2,s+2} & 0 & \cdots & a_{r+2,t+2} & 0 & \cdots \\
+          \\
+        \end{pmatrix}
+        $$
+        %$$
+        %\V: \begin{pmatrix}
+        %  \ldots & a_{r,s} & a_{r,t} & \ldots & \ldots \\
+        %\end{pmatrix}
+        %$$
+        $$
+        \begin{matrix}
           a_{r,s} & \cdot & \begin{bmatrix}
                                     x_s      \\
                                     x_{s+1}  \\
@@ -335,19 +361,15 @@
                                                                                                                 \end{bmatrix}
         \end{matrix}
         $$
-        \caption{dingo}
-        \label{fig:simd_scheme_diag}
+        \caption{\textbf{Matrix slice with diagonal structure and uniform values and corresponding vectorized matrix-vector-multiplication scheme.} In addition to the diagonal structure the matrix row's values are identical simplifying the arithemtic scheme.}
+        \label{fig:simd_scheme_diag_collated}
       \end{figure}
 
-      As each diagonal's summand accesses the argument vector's elements in consecutive fashion, for example $x_s, x_{s+1}, \ldots, x_{s + k}$ for the first diagonal, the multiplication can be vectorized. The other summand's constituents, the diagonal's elements, are accessed at a fixed offset which is equal to the number of diagonals. This is due to the fact that the matrix slice's non-zero elements are stored row-by-row, where each row has the same number of elements. Thus $a_{r,s}$ is located as many elements before $a_{r+1, r+2}$ within \V as there are diagonals. 
+      The third practically relevant case are matrix slices whose structure is uniform, i.e. each row's non-zero elements are situated at the same columns. The corresponding vectorized matrix-vector multiplication scheme is again similar to the general case of a diagonal structure. Here the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again located at fixed stride-offsets within \V. Note that for matrices stemming from structured grid computations the values necessarily differ inbetween rows as the matrix would be singular otherwise.
 
-      In SIMD terms a stride-gather and a load is required for the diagonal's elements and the argument vector, respectively. The two vector registers are then multiplied and the result is then added onto the product pertaining to the next diagonal, as depicted in TODO.
-
-      For the case of a matrix slice whose structure is diagonal and whose values within each diagonal are identical, e.g. $a_{r,s} = a_{r+1, s+1} = \ldots$ for the first diagonal etc., the multiplication scheme is simplified in that the argument vector's values contained in the vector register are simply scaled by the diagonal's value instead of being subjected to a vectorized multiplication (Figure \ref{fig:simd_scheme_diag} bottom).
-
-      Another practically relevant case are matrix slices whose structure is uniform, i.e. each row's non-zero elements are situated at the same columns. The corresponding vectorized matrix-vector multiplication scheme is again similar to the general case of a diagonal structure. Here the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again located at fixed offsets within \V  as depicted in TODO.
-
-      \begin{equation}
+      \begin{figure}[ht]
+        \centering
+        $$
         \begin{pmatrix}
           \\
           \cdots & 0 & a_{r,s} &  0 & \cdots & a_{r,t} & 0 & \cdots \\
@@ -355,86 +377,79 @@
           \cdots & 0 & a_{r+2,s} & 0 & \cdots & a_{r+2,t} & 0 & \cdots \\
           \\
         \end{pmatrix}
-      \end{equation}
-
-      \begin{equation}
+        $$
+        %$$
+        %\V: \begin{pmatrix}
+        %  \ldots & a_{r,s} & a_{r,t} & \ldots & a_{r+1,s} & a_{r+1,t} & \ldots & a_{r+2,s} & a_{r+2,t} & \ldots \\
+        %\end{pmatrix}
+        %$$
+        $$
         \begin{matrix}
           \begin{bmatrix}
             a_{r,s}     \\
-            a_{r+1,s+1} \\
+            a_{r+1,s} \\
                \vdots   \\
-            a_{r+k,s+k} \\
+            a_{r+k,s} \\
           \end{bmatrix} & \cdot & x_s & + & \begin{bmatrix}
                                               a_{r,t}     \\
-                                              a_{r+1,t+1} \\
+                                              a_{r+1,t} \\
                                                 \vdots    \\
-                                              a_{r+k,t+k} \\
+                                              a_{r+k,t} \\
                                             \end{bmatrix} & \cdot & x_t & + \cdots & = \begin{bmatrix}
-                                                                                       y_{r} \\
+                                                                                       y_{r}   \\
                                                                                        y_{r+1} \\
-                                                                                       \vdots \\
+                                                                                       \vdots  \\
                                                                                        y_{r+k} \\
                                                                                      \end{bmatrix}
         \end{matrix}
-      \end{equation}
+        $$
+        \caption{\textbf{Matrix slice with uniform structure and corresponding vectorized matrix-vector-multiplication scheme.} Each non-zero column's elements are located within \V at a fixed stride offset corresponding to the number of non-zero columns. As in Figure \ref{fig:simd_scheme_diag} this may improve the performance of loading the SIMD register's values from memory.}
+        \label{fig:simd_scheme_uniform}
+      \end{figure}
 
-      All of the above mentioned arithmetic schemes can be extended to vector registers of arbitrary length and are thus theoretically able to scale with additional hardware cabalities.
+      All of the above mentioned arithmetic schemes can be extended to vector registers of arbitrary length and are thus theoretically able to scale with additional hardware cabalities. Of course, in order to utilize the above mentioned computation schemes a preliminary analysis of the matrix's structure has to be performed in order to determine the segments which can facility vectorized arithmetic. Due to the storage scheme of the C3SR format this can be done very cheaply since if a matrix segment has diagonal or uniform structure all of the rows exhibit the same pattern and hence the same values in \JS. For uniformly structured segments all peg indices are identical, while for a diagonally structured segment the peg indices are consecutive integers. Additionally, if the rows values are identical for the case of a diagonal structure the rows' index-pointers \VS are also identical.
 
 \section{Performance Benchmarks}
   Measure performance in terms of (1) data compression ratio and (2) arithmetic performance (matvecmult)
 
   \subsection{Generation of structured grid adjacency matrices as test matrices}
 
-    For the purpose of gauging the performance test matrices are created in CSR format which are then converted to C3SR
-    format and compressed. These matrices resemble the structure of the structured grid matrices introduced above and
-    are created by iterating through a 3D grid of fixed integral dimensions X, Y, Z and applying a given stencil
-    which encodes the desired adjacency relationship. Nodes requested by the stencil but missing from the grid, i.e.
-    nodes on the grid's outer borders are omitted, i.e. their corresponding entries in the adjacency matrix carry a zero
-    which is equivalent to Dirichlet-type boundary conditions.
+    For the purpose of gauging the arithmetic performance test matrices are created in CSR format which are then converted to C3SR format. These matrices resemble the structure of the structured grid matrices introduced above and are created by iterating through a 3D grid of fixed integral dimensions X, Y, Z and applying a given stencil operation which encodes the desired adjacency relationship of the grid. Nodes requested by the stencil but missing from the grid, i.e.  nodes on the grid's outer borders are omitted, i.e. their corresponding entries in the adjacency matrix carry a zero which is equivalent to Dirichlet-type boundary conditions.
 
-    The matrix's non-zero entries' numeric values are obtained from evaluating a sinusoidal function at the geometric
-    center point $\vec{r} = (x, y, z)$ inbetween the two nodes in question whereby each Cartesian component $x, y, z$ is
-    scaled by its coordinate's span $X, Y, Z$. An additional offset serves to prevent that entries in the matrix
-    correponding to adjacent nodes according to the stencil incidentally evaluate to 0. The function utilized is
-    $$W(x,y,z; n_x, n_y, n_z) = 2 + \sum \limits_{d \in \{x,y,z\}} \sin{\frac{d}{d_{\text{max}}} \cdot \pi \cdot n_d} $$
-    where $n_x, n_y, n_z$ are periodicity parameters for each dimensions.
+    The matrix's non-zero entries' numeric values are obtained from evaluating a sinusoidal function at the geometric center point $\vec{r} = (x, y, z)$ inbetween the two nodes in question whereby each Cartesian component $x, y, z$ is scaled by its coordinate's span $X, Y, Z$. An additional offset serves to prevent that entries in the matrix correponding to adjacent nodes according to the stencil incidentally evaluate to 0. The function utilized is $$W(x,y,z; n_x, n_y, n_z) = 2 + \sum \limits_{d \in \{x,y,z\}} \sin{\frac{d}{d_{\text{max}}} \cdot \pi \cdot n_d} $$ where $n_x, n_y, n_z$ are periodicity parameters for each dimensions. The matrix in Figure \ref{fig:laplacian_example} has been created using this method.
 
-    Note that $n_d = 0 \Leftrightarrow \partial_d W(\vec{r}) \equiv 0$, introducing a periodicity in the corresponding
-    dimension $d$. This feature is utilized to control the periodicity in the matrix's values.
+    Note that $n_d = 0 \Leftrightarrow \partial_d W(\vec{r}) \equiv 0$, introducing a periodicity in the corresponding dimension $d$. This feature is utilized to control the periodicity in the matrix's values.
 
-    (((Example of matrix + Computation of nonzeros)))
+    For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second, larger matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil operation.
 
-    For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second, larger matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil.
+    The first, smaller matrix's values are identical inbetween two rows whose structure is the same, such that \V and \J contain the same number of elements. The second, larger matrix's values are all unique between rows and thus \V contains approximately $7 \cdot 100^3$ elements (Figure \ref{fig:matrix_stats}).
 
-    The matrices' stats are displayed:
+    \begin{figure}[ht]
+      \centering
+      \begin{tabular}{ l | c c }
+          Array & Small Matrix & Large Matrix \\
+        \hline                                \\
+        \V      & $135$        & $6940000$    \\
+        \VS     & $1000000$    & $1000000$    \\
+        \J      & $135$        & $135$        \\
+        \JS     & $1000000$    & $1000000$    \\
+        \JP     & $1000000$    & $1000000$    \\
+        \RS     & $1000000$    & $1000000$    \\
+        \hfill
+      \end{tabular}
+      \caption{\textbf{Data about matrices in C3SR format used for matrix-vector multiplication benchmarking.} Number of elements are displayed for each array. \V stores double-precision floating-points while all other arrays use 32 bit-wide integers.}
+      \label{fig:matrix_stats}
+    \end{figure}
 
-    \begin{tabular}{ l c c }
-             & Small & Large \\
-      \hline                        \\
-      V      & 135    & 6940000 \\
-      VS     & 1000000 & 1000000 \\
-      J      & 135    & 135 \\
-      JS     & 1000000 & 1000000 \\
-      JP     & 1000000 & 1000000 \\
-      RS    & 1000001 & 1000001 \\
-    \end{tabular}
+    Note that as the two matrices share the same structure their only difference is found in \V. The small matrix primarily utilizes the second matrix-vector multiplication scheme (Figure \ref{fig:simd_scheme_diag_collated}) while the large matrix mainly relies on the first scheme (Figure \ref{fig:simd_scheme_diag}).
 
-    Note that the ... Daten unterscheiden sich nur in V (--> selbe struktur)
-    --> SIMD Multiplikation verwendet bei den Matrizen unterschiedliche implementierungen (s. SIMD arithmetik)
   \subsection{Data compression}
 
     This plot compares the number of array elements required in the C3SR format to store a fully structured matrix's column index information (green curve) against the baseline size of the equivalent CSR format matrix's column index array (red curve) depending on the partition size utilized for the structural compression. The C3SR format's recorded number of elements comprises the sum of the sizes of the J, JP and JS arrays, respectively. The RS array and the CSR format's row-pointer array are left out of the consideration as they are identical in size. The underlying $50 \times 50 \times 50$ grid contains $125000$ nodes to which the symmetric 7-pt stencil is applied. The numerical values of the matrix are of no concern for its structure.
 
-    The C3SR format's diminishing storage requirements are caused solely by J (blue curve) as JS and
-    JP are constant in size, each containing $125000$ elements, one per matrix row. The size of J
-    exhibits an inverse linear relationship to the partition size, as can be inferred from the
-    straight line's gradient in the double logarithmic plot. This is due to the fact that large
-    grids mainly consist of inner nodes whose corresponding rows in the matrix all share the same pattern. Hence the overwhelming majority of partitions' column index information will condense to 7 elements within J (and one element per row for JS and JP) irrespective of the partition size with exceptions arising only around the few border nodes and their corresponding rows.
+    The C3SR format's diminishing storage requirements are caused solely by J (blue curve) as JS and JP are constant in size, each containing $125000$ elements, one per matrix row. The size of J exhibits an inverse linear relationship to the partition size, as can be inferred from the straight line's gradient in the double logarithmic plot. This is due to the fact that large grids mainly consist of inner nodes whose corresponding rows in the matrix all share the same pattern. Hence the overwhelming majority of partitions' column index information will condense to 7 elements within J (and one element per row for JS and JP) irrespective of the partition size with exceptions arising only around the few border nodes and their corresponding rows.
 
-    The minimum size of J is determined by the matrix's unique patterns which correspond to 8 corner
-    nodes a 4 adjacent nodes, 12 edge nodes a 5 adjacency nodes, 6 face nodes a 6 adjaceny nodes and
-    the inner nodes with the full 7 adjacency nodes totalling $135$ entries. (TODO: Tikz 3d-draw
-    representative of all nodes creating unique patterns).
+    The minimum size of J is determined by the matrix's unique patterns which correspond to 8 corner nodes a 4 adjacent nodes, 12 edge nodes a 5 adjacency nodes, 6 face nodes a 6 adjaceny nodes and the inner nodes with the full 7 adjacency nodes totalling $135$ entries. (TODO: Tikz 3d-draw representative of all nodes creating unique patterns).
 
     TODO: Ausreißer erklären.
     \begin{figure}[ht]
