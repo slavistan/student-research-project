@@ -438,16 +438,28 @@
         \JS        & $1000000$      & $1000000$      \\
         \JP        & $1000000$      & $1000000$      \\
         \RS        & $1000000$      & $1000000$      \\
-        Total Size & $\approx 16$MB & $\approx 72$MB \\
+        Total Size in C3SR format & $\approx 16$MB & $\approx 72$MB \\
+        Total Size in CSR Format & $\approx 87$MB & $\approx 87$MB \\
         \hfill
       \end{tabular}
-      \caption{\textbf{Data about matrices in C3SR format used for matrix-vector multiplication benchmarking.} Number of elements are displayed for each array. \V stores double-precision floating-points while all other arrays use 32 bit-wide integers.}
+      \caption{\textbf{Matrices in C3SR format used for matrix-vector multiplication benchmarking.} Number of elements is displayed for each array. \V stores double-precision floating-points while all other arrays use 32 bit-wide integers. Additionally, the matrix's size in CSR representation is listed.}
       \label{fig:matrix_stats}
     \end{figure}
 
     Note that as the two matrices share the same structure and thus their only difference is found in \V and \VS. The small matrix primarily utilizes the second matrix-vector multiplication scheme (Figure \ref{fig:simd_scheme_diag_collated}) while the large matrix mainly relies on the first scheme (Figure \ref{fig:simd_scheme_diag}). The matrices are generated using the asc::matrixgen C++ library\footnote{https://mp-force.ziti.uni-heidelberg.de/asc/AscMatrixGen}.
 
-  \subsection{Performance of Matrix-Vector Multiplication}
+  \subsection{Performance of CSR-like Matrix-Vector Multiplication}
+
+    The C3SR format's CSR-like matrix-vector multiplication scheme (referred to as \emph{baseline implementation} hereinafter; see \ref{baseline-implementation}) is compared against its CSR format's pendant using the Eigen C++ library \cite{eigen:website} on three different machines usign the structured grid matrices introduced in the previous section. The results are displayed in Figure \ref{fig:baseline_arithmetic_performance}.
+
+    \begin{figure}[!ht]
+      \centering
+      \includegraphics[width=0.9\textwidth]{assets/eigen_vs_c3sr_baseline}
+      \caption{\textbf{Performance comparison of the CSR format against the C3SR format on structured grid matrices.} The means and sample standard deviations of 10 samples a $10^3$ continuous matrix-vector multiplications are displayed.}
+      \label{fig:baseline_arithmetic_performance}
+    \end{figure}
+
+  \subsection{Performance of SIMD Matrix-Vector Multiplication}
 
     The C3SR format's matrix-vector multiplication performance is measured using two different implementations: the CSR-like multiplication scheme (\ref{baseline-implementation}, referred to as the 'baseline implementation' hereinafter) is compared against the SIMD multiplication scheme (\ref{simd-implementation}) on the two different structured grid matrices introduces in the previous section. The implementation of the SIMD multiplication scheme utilizes the explicit SIMD vectorization library UME::SIMD \cite{umesimd2017}. The results are displayed in Figure \ref{fig:arithmetic-performance}.
 
@@ -458,7 +470,7 @@
       \label{fig:arithmetic-performance}
     \end{figure}
 
-    As a sparse matrix-vector multiplication is a memory-bound computation so that the efficacy of a vectorized arithmetic implementation depends very strongly on the amount of data that is required to be read from memory and whether the dynamic overhead involved in determining the applicable SIMD scheme is compensated by a speed-up in arithmetic. This fact is reflected in the measurements as for the large matrix the SIMD implementation is generally slower than the baseline implementation. Only for the small matrix a significant speed-up can be observed on every machine. However, this might be partly due to the fact that the large matrix's SIMD multiplication scheme is less performant as it involves strided loads from memory which might equate to regular gather operations on the hardware used for this benchmark.
+    Sparse matrix-vector multiplication is a memory-bound computation so that the efficacy of a vectorized arithmetic implementation depends very strongly on the amount of data that is required to be read from memory and whether the dynamic overhead involved in determining the applicable SIMD scheme is compensated by a speed-up in arithmetic. This fact is reflected in the measurements as for the large matrix the SIMD implementation is generally slower than the baseline implementation. Only for the small matrix a significant speed-up can be observed on every machine. However, this might be partly due to the fact that the large matrix's SIMD multiplication scheme is less performant as it involves strided loads from memory which might equate to regular gather operations on the hardware used for this benchmark (see \ref{simd-implementation}).
 
   \subsection{Data compression}
 
