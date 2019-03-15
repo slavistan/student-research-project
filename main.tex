@@ -239,9 +239,11 @@
     /TODO? Nomenclature section after abstract?
     /TODO: 3fold -compression erklären :p
 
-  \subsection{Matrix-Vector Multiplication}
+  \subsection{Matrix-Vector Multiplication Schemes} \label{subsec:matrix-vector-multiplication-schemes}
 
-    \subsubsection{Basic CSR Multiplication Scheme} \label{baseline-implementation}
+    // TODO: Intro text
+
+    \subsubsection{Basic CSR-like Multiplication Scheme} \label{subsubsec:basic-csr-like-multiplication-scheme}
 
       Algorithmically, the basic row-by-column matrix-vector multiplication scheme of the C3SR format is similar to that of the CSR format (Figure \ref{fig:c3sr_matvecmult_basic}). Differences arise only in the C3SR's additional offset $\JP[k]$ which is applied to each relative column index prior to accessing the argument vector $x$.
 
@@ -256,13 +258,13 @@
           \text{C3SR} & : & \sum \limits_{\alpha = 0}^{\RS[k] - 1} & \bigg( & \V\big[\VS[k] + \alpha\big] & \cdot & x\bigg[\J\big[\JS[k] + \alpha\big] + \JP[k]\bigg] & \bigg) \\
         \end{matrix}
         $$
-        \caption{\textbf{Matrix-vector multiplication schemes of C3SR and CSR format in comparison.} $k^{\text{th}}$ component of the product $Ax$ is shown. The C3SR format accesses \V and \J from their dedicated index-pointer arrays while the CSR format utilizes one common row-pointer array. Additionally, the C3SR format requires the relative column indices to be offset by the peg column index for each row.}
+        \caption{\textbf{Matrix-vector multiplication schemes of C3SR and CSR format in comparison.} The $k^{\text{th}}$ component of the product $Ax$ is shown. The C3SR format accesses \V and \J from their dedicated index-pointer arrays while the CSR format utilizes one common row-pointer array. Additionally, the C3SR format requires the relative column indices to be offset by the peg column index for each row.}
         \label{fig:c3sr_matvecmult_basic}
       \end{figure}
 
       On the flipside, structured matrices facilitate very compact storage allowing a small segment of memory, corresponding to possibly only a few cache lines, to contain the matrix's complete structural information and, depending on the underlying physical problem, even the numeric values. This can drastically improve arithmetic performance of the C3SR format despite the more complex memory access scheme, as will be shown in the benchmark section.
 
-    \subsubsection{SIMD Implementation} \label{simd-implementation}
+    \subsubsection{Vectorized SIMD Multiplication Scheme} \label{subsubsec:vectorized-simd-multiplication-scheme}
 
       In addition to the performance gain utilizing the basic multiplication scheme due to better data locality the data layout of a structured matrix in C3SR format allows for the matrix-vector multiplication to be implemented utilizing SIMD parallelism. The matrix's data is layed out in memory in such a way that the matrix-vector multiplication may be performed for multiple rows at a time using vectorization. Depending on the composition of the matrix corresponding to the types of problems mentioned in the introduction three different but very similar multiplication schemes can be devised.
 
@@ -407,15 +409,15 @@
         \label{fig:simd_scheme_uniform}
       \end{figure}
 
-      All of the above mentioned arithmetic schemes can be extended to vector registers of arbitrary length and are thus theoretically able to scale with additional hardware cabalities. Of course, in order to utilize the above mentioned computation schemes a preliminary analysis of the matrix's structure has to be performed in order to determine the segments which can facility vectorized arithmetic. Due to the storage scheme of the C3SR format this can be done very cheaply since if a matrix segment has diagonal or uniform structure all of the rows exhibit the same pattern and hence the same values in \JS. For uniformly structured segments all peg indices are identical, while for a diagonally structured segment the peg indices are consecutive integers. Additionally, if the rows values are identical for the case of a diagonal structure the rows' index-pointers \VS are also identical.
+      All of the above mentioned arithmetic schemes can be extended to vector registers of arbitrary length and are thus theoretically able to scale with additional hardware cabalities. Of course, in order to utilize the above mentioned computation schemes a preliminary analysis of the matrix's structure has to be performed in order to determine the segments which can facility vectorized arithmetic. Due to the storage scheme of the C3SR format this can be done very cheaply since if a matrix segment has diagonal or uniform structure all of the rows exhibit the same pattern and hence the same values in \JS. For uniformly structured segments all peg indices are identical, while for a diagonally structured segment the peg indices are consecutive integers. Additionally, if the rows' values are identical for the case of a diagonal structure the rows' index-pointers \VS are also identical.
 
 \section{Performance Benchmarks}
 
-  The matrix-vector multiplication performance of the C3SR format is gauged. Firstly, the C3SR and the CSR formats performance is compared on the default CSR-like multiplication scheme. Secondly, the C3SR format's different matrix-vector implementations introduced above are compared against each other. To this end, structured matrices are generated in CSR and C3SR format which are then used in matrix-vector multiplications against a dense random vector.
+  The matrix-vector multiplication performance of the C3SR format is measured in its CSR-like and vectorized implementations (see \ref{subsec:matrix-vector-multiplication-schemes}). Firstly, a baseline performance is established by comparing the matrix-vector multiplication performance of the C3SR format's CSR-like multiplication scheme introduced in \ref{subsubsec:basic-csr-like-multiplication-scheme} against the CSR format's performance on different structured grid matrices and on three different machines. Secondly, the C3SR format's baseline performance is compared against its vectorized counterpart introduced in \ref{subsubsec:vectorized-simd-multiplication-scheme}.
 
-  The following sections introduce the method of acquiring structured grid matrices and the results gathered from the multiple performance benchmarks performed on multiple machines.
+  The following subsection introduce the structured grid matrices used for the performance benchmarks and their method of acquisition. Subsequently, the results of the performance benchmarks are discussed.
 
-  \subsection{Generation of structured grid adjacency matrices as test matrices}
+  \subsection{Generation of Structured Grid Matrices as Test Matrices}
 
     For the purpose of gauging the arithmetic performance test matrices are created in CSR format which are then converted to C3SR format. These matrices resemble the structure of the structured grid matrices introduced above and are created by iterating through a 3D grid of fixed integral dimensions X, Y, Z and applying a given stencil operation which encodes the desired adjacency relationship of the grid. Nodes requested by the stencil but missing from the grid, i.e.  nodes on the grid's outer borders are omitted, i.e. their corresponding entries in the adjacency matrix carry a zero which is equivalent to Dirichlet-type boundary conditions.
 
@@ -450,18 +452,22 @@
 
   \subsection{Performance of CSR-like Matrix-Vector Multiplication}
 
-    The C3SR format's CSR-like matrix-vector multiplication scheme (referred to as \emph{baseline implementation} hereinafter; see \ref{baseline-implementation}) is compared against its CSR format's pendant using the Eigen C++ library \cite{eigen:website} on three different machines usign the structured grid matrices introduced in the previous section. The results are displayed in Figure \ref{fig:baseline_arithmetic_performance}.
+    The C3SR format's CSR-like matrix-vector multiplication scheme (referred to as \emph{baseline implementation} hereinafter; see \ref{subsubsec:basic-csr-like-multiplication-scheme}) is compared against its CSR format's pendant using the Eigen C++ library \cite{eigen:website} on three different machines using the structured grid matrices introduced in the previous section. The results are displayed in Figure \ref{fig:baseline_arithmetic_performance}.
 
     \begin{figure}[!ht]
       \centering
       \includegraphics[width=0.9\textwidth]{assets/eigen_vs_c3sr_baseline}
-      \caption{\textbf{Performance comparison of the CSR format against the C3SR format on structured grid matrices.} The means and sample standard deviations of 10 samples a $10^3$ continuous matrix-vector multiplications are displayed.}
+      \caption{\textbf{Performance comparison of the CSR format against the C3SR format on structured grid matrices.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. As the CSR format's representation of the different matrices is identical except for different numeric values the arithmetic performance is the same save for some minor statistical variance.}
       \label{fig:baseline_arithmetic_performance}
     \end{figure}
 
+    By design of the C3SR format it outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the smaller matrix entailing speed-up factors of roughly 2, 13, and 3.
+
+    + NUMA-aware memory allocation vs CSR uses open-MP (no NUMA) + dynamic overhead.
+
   \subsection{Performance of SIMD Matrix-Vector Multiplication}
 
-    The C3SR format's matrix-vector multiplication performance is measured using two different implementations: the CSR-like multiplication scheme (\ref{baseline-implementation}, referred to as the 'baseline implementation' hereinafter) is compared against the SIMD multiplication scheme (\ref{simd-implementation}) on the two different structured grid matrices introduces in the previous section. The implementation of the SIMD multiplication scheme utilizes the explicit SIMD vectorization library UME::SIMD \cite{umesimd2017}. The results are displayed in Figure \ref{fig:arithmetic-performance}.
+    The C3SR format's matrix-vector multiplication performance is measured using two different implementations: the CSR-like multiplication scheme (\ref{subsubsec:basic-csr-like-multiplication-scheme}, referred to as the 'baseline implementation' hereinafter) is compared against the SIMD multiplication scheme (\ref{subsubsec:vectorized-simd-multiplication-scheme}) on the two different structured grid matrices introduces in the previous section. The implementation of the SIMD multiplication scheme utilizes the explicit SIMD vectorization library UME::SIMD \cite{umesimd2017}. The results are displayed in Figure \ref{fig:arithmetic-performance}.
 
     \begin{figure}[!ht]
       \centering
@@ -470,7 +476,7 @@
       \label{fig:arithmetic-performance}
     \end{figure}
 
-    Sparse matrix-vector multiplication is a memory-bound computation so that the efficacy of a vectorized arithmetic implementation depends very strongly on the amount of data that is required to be read from memory and whether the dynamic overhead involved in determining the applicable SIMD scheme is compensated by a speed-up in arithmetic. This fact is reflected in the measurements as for the large matrix the SIMD implementation is generally slower than the baseline implementation. Only for the small matrix a significant speed-up can be observed on every machine. However, this might be partly due to the fact that the large matrix's SIMD multiplication scheme is less performant as it involves strided loads from memory which might equate to regular gather operations on the hardware used for this benchmark (see \ref{simd-implementation}).
+    Sparse matrix-vector multiplication is a memory-bound computation so that the efficacy of a vectorized arithmetic implementation depends very strongly on the amount of data that is required to be read from memory and whether the dynamic overhead involved in determining the applicable SIMD scheme is compensated by a speed-up in arithmetic. This fact is reflected in the measurements as for the large matrix the SIMD implementation is generally slower than the baseline implementation. Only for the small matrix a significant speed-up can be observed on every machine. However, this might be partly due to the fact that the large matrix's SIMD multiplication scheme is less performant as it involves strided loads from memory which might equate to regular gather operations on the hardware used for this benchmark (see \ref{subsubsec:vectorized-simd-multiplication-scheme}).
 
   \subsection{Data compression}
 
