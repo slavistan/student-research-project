@@ -47,13 +47,21 @@
 %%%%%%% Begin of document
 %%%%%%%
 
-\author{Stanislaw Hüll}
+\author{Stanislaw Hüll\\\small{Studiengang Master Technische Informatik}\\\small{Universität Heidelberg - Fakultät für Physik und Astronomie}}
 \title{Student Research Project}
-\date{2018-11-11}
 \begin{document}
 
 \maketitle
 
+\begin{abstract}
+Sparse matrix-vector multiplication on structured grid matrices is ubiquitously used for physical simulations in many scientific fields. Implementing the arithmetic using a general purpose sparse matrix format, such as the widely used CSR format, however, yields suboptimal results for structured grid matrices as their inherent structure cannot be exploited by these formats in order to better the arithmetic performance. This report presents a new sparse matrix storage format, called C3SR format which is based on the CSR format, tailored to maximize the arithmetic performance of matrix-vector multiplication involving structured grid matrices. Its arithmetic performance is compared against the CSR format using two arithmetic schemes, a CSR-like scheme and a vectorized SIMD scheme on multiple machines displaying large speed-ups due to improved data locality.
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+\listoffigures
+\newpage
 \section{Introduction}
 
   \subsection{Compressed Sparse Row Matrix Storage Format}
@@ -84,7 +92,7 @@
         \end{matrix}
         $$
       \end{minipage}
-      \caption{\textbf{Exemplary matrix with corresponding CSR representation.} The array elements are color-coded in red for the first row, green for the second row and blue for the third row.}
+      \caption[Exemplary matrix with corresponding CSR representation.]{\textbf{Exemplary matrix with corresponding CSR representation.} The array elements are color-coded in red for the first row, green for the second row and blue for the third row.}
       \label{fig:csr_example}
     \end{figure}
 
@@ -104,13 +112,13 @@
         \begin{minipage}{0.4\textwidth}
           \centering
           \includegraphics[width=0.9\textwidth]{fig/structured_grid_example.png} % second figure itself
-          \caption{\textbf{Curvi-linear grid over a physically complex domain.} The grid nodes are logically rectangular despite the non-rectangular physical domain and thus comprise a structured grid. Source: \cite{daad:website}}
+          \caption[Curvi-linear grid over a physically complex domain.]{\textbf{Curvi-linear grid over a physically complex domain.} The grid nodes are logically rectangular despite the non-rectangular physical domain and thus comprise a structured grid. Source: \cite{daad:website}}
           \label{fig:structured_grid_example}
         \end{minipage}\hfill
         \begin{minipage}{0.5\textwidth}
           \centering
           \includegraphics[width=0.9\textwidth]{fig/refined_structured_grid.png} % second figure itself
-          \caption{\textbf{Heterogeneous mesh with structured regions.} Outer side (green) and interior volume are fully structured and are connected via an unstructured mesh region. Given proper indexing of grid nodes the resulting sparse matrix will exhibit regularity in the sections pertaining to the structured mesh region. Source: \cite{cubit-mesh-refinement:website}}
+          \caption[Heterogeneous mesh with structured regions.]{\textbf{Heterogeneous mesh with structured regions.} Outer side (green) and interior volume are fully structured and are connected via an unstructured mesh region. Given proper indexing of grid nodes the resulting sparse matrix will exhibit regularity in the sections pertaining to the structured mesh region. Source: \cite{cubit-mesh-refinement:website}}
           \label{fig:refined_structured_grid}
         \end{minipage}
     \end{figure}
@@ -127,7 +135,7 @@
             \centering
             \includegraphics[width=0.9\textwidth]{fig/laplacian_example.png} % second figure itself
         \end{minipage}
-        \caption{\textbf{Structured grid and corresponding sparse adjacency matrix for a simple Laplacian} $\nabla^2 u(\vec{r}) = 0$. The Laplace-operator is approximated by the conventional 3-axial symmetric discretization scheme, equivalent to a symmetric 7-point stencil operation.}
+        \caption[Structured grid and corresponding matrix for a simple Laplacian.]{\textbf{Structured grid and corresponding matrix for a simple Laplacian} $\nabla^2 u(\vec{r}) = 0$. The Laplace-operator is approximated by the conventional 3-axial symmetric discretization scheme, equivalent to a symmetric 7-point stencil operation.}
         \label{fig:laplacian_example}
     \end{figure}
 
@@ -184,7 +192,7 @@
         \end{matrix}
         $$
       \end{minipage}
-      \caption{\textbf{Matrix with corresponding C3SR representation (structural information only).} The non-zeros are denoted as black dots. The $0^{\text{th}}$ and $2^{\text{th}}$ row exhibit the same column index pattern $\big(0,2,3\big)$ at different peg index positions of $1$ and $2$, respectively, thus the $0^{\text{th}}$ and the $2^{\text{th}}$ element of \JS point \J[0], which is the first element of this unique pattern. The $1^{\text{th}}$ row has a unique pattern which is stored after the previous pattern within \J at offset $3$ which \JS[1] accordingly points.}
+      \caption[Matrix with corresponding C3SR representation (structural information only).]{\textbf{Matrix with corresponding C3SR representation (structural information only).} The non-zeros are denoted as black dots. The $0^{\text{th}}$ and $2^{\text{th}}$ row exhibit the same column index pattern $\big(0,2,3\big)$ at different peg index positions of $1$ and $2$, respectively, thus the $0^{\text{th}}$ and the $2^{\text{th}}$ element of \JS point \J[0], which is the first element of this unique pattern. The $1^{\text{th}}$ row has a unique pattern which is stored after the previous pattern within \J at offset $3$ which \JS[1] accordingly points.}
       \label{fig:c3sr_example_structure}
     \end{figure}
 
@@ -232,7 +240,7 @@
         \end{matrix}
         $$
       \end{minipage}
-      \caption{\textbf{Matrix with corresponding full C3SR representation.} The $0^{\text{th}}$ and $2^{\text{th}}$ rows exhibit the same pattern and the same values, thus the values are stored only once. The last two rows also share a common pattern with different values.}
+      \caption[Matrix with corresponding full C3SR representation.]{\textbf{Matrix with corresponding full C3SR representation.} The $0^{\text{th}}$ and $2^{\text{th}}$ rows exhibit the same pattern and the same values, thus the values are stored only once. The last two rows also share a common pattern with different values.}
       \label{fig:c3sr_example_full}
     \end{figure}
 
@@ -258,7 +266,7 @@
           \text{C3SR} & : & \sum \limits_{\alpha = 0}^{\RS[k] - 1} & \bigg( & \V\big[\VS[k] + \alpha\big] & \cdot & x\bigg[\J\big[\JS[k] + \alpha\big] + \JP[k]\bigg] & \bigg) \\
         \end{matrix}
         $$
-        \caption{\textbf{Matrix-vector multiplication schemes of C3SR and CSR format in comparison.} The $k^{\text{th}}$ component of the product $Ax$ is shown. The C3SR format accesses \V and \J from their dedicated index-pointer arrays while the CSR format utilizes one common row-pointer array. Additionally, the C3SR format requires the relative column indices to be offset by the peg column index for each row.}
+        \caption[Matrix-vector multiplication schemes of C3SR and CSR format in comparison.]{\textbf{Matrix-vector multiplication schemes of C3SR and CSR format in comparison.} The $k^{\text{th}}$ component of the product $Ax$ is shown. The C3SR format accesses \V and \J from their dedicated index-pointer arrays while the CSR format utilizes one common row-pointer array. Additionally, the C3SR format requires the relative column indices to be offset by the peg column index for each row.}
         \label{fig:c3sr_matvecmult_basic}
       \end{figure}
 
@@ -321,7 +329,7 @@
         %  \ldots & a_{r,s} & a_{r,t} & \ldots & a_{r+1,s+1} & a_{r+1,t+1} & \ldots & a_{r+2,s+2} & a_{r+2,t+2} & \ldots \\
         %\end{pmatrix}
         %$$
-        \caption{\textbf{Matrix slice with diagonal structure and corresponding vectorized matrix-vector-multiplication scheme.} Each diagonal's elements are located within \V at a fixed stride offset corresponding to the number of diagonals. Depending on the hardware capabilities this may make the gather-load operation more efficient.}
+        \caption[Matrix slice with diagonal structure and corresponding vectorized matrix-vector-multiplication scheme.]{\textbf{Matrix slice with diagonal structure and corresponding vectorized matrix-vector-multiplication scheme.} Each diagonal's elements are located within \V at a fixed stride offset corresponding to the number of diagonals. Depending on the hardware capabilities this may make the gather-load operation more efficient.}
         \label{fig:simd_scheme_diag}
       \end{figure}
 
@@ -363,7 +371,7 @@
                                                                                                                 \end{bmatrix}
         \end{matrix}
         $$
-        \caption{\textbf{Matrix slice with diagonal structure and uniform values and corresponding vectorized matrix-vector-multiplication scheme.} In addition to the diagonal structure the matrix row's values are identical simplifying the arithemtic scheme.}
+        \caption[Matrix slice with diagonal structure and uniform values and corresponding vectorized matrix-vector-multiplication scheme.]{\textbf{Matrix slice with diagonal structure and uniform values and corresponding vectorized matrix-vector-multiplication scheme.} In addition to the diagonal structure the matrix row's values are identical simplifying the arithemtic scheme.}
         \label{fig:simd_scheme_diag_collated}
       \end{figure}
 
@@ -405,7 +413,7 @@
                                                                                      \end{bmatrix}
         \end{matrix}
         $$
-        \caption{\textbf{Matrix slice with uniform structure and corresponding vectorized matrix-vector-multiplication scheme.} Each non-zero column's elements are located within \V at a fixed stride offset corresponding to the number of non-zero columns. As in Figure \ref{fig:simd_scheme_diag} this may improve the performance of loading the SIMD register's values from memory.}
+        \caption[Matrix slice with uniform structure and corresponding vectorized matrix-vector-multiplication scheme.]{\textbf{Matrix slice with uniform structure and corresponding vectorized matrix-vector-multiplication scheme.} Each non-zero column's elements are located within \V at a fixed stride offset corresponding to the number of non-zero columns. As in Figure \ref{fig:simd_scheme_diag} this may improve the performance of loading the SIMD register's values from memory.}
         \label{fig:simd_scheme_uniform}
       \end{figure}
 
@@ -427,7 +435,7 @@
 
     For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second, larger matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil operation.
 
-    The first, smaller matrix's values are identical inbetween two rows whose structure is the same, such that \V and \J contain the same number of elements. The second, larger matrix's values are all unique between rows and thus \V contains approximately $7 \cdot 100^3$ elements (Figure \ref{fig:matrix_stats}).
+    The first, smaller matrix's values are identical inbetween two rows whose structure is the same, such that \V and \J contain the same number of elements. The second, larger matrix's rows' values are all unique and thus \V contains approximately $7 \cdot 100^3$ elements (Figure \ref{fig:matrix_stats}).
 
     \begin{figure}[ht]
       \centering
@@ -444,7 +452,7 @@
         Total Size in CSR Format & $\approx 87$MB & $\approx 87$MB \\
         \hfill
       \end{tabular}
-      \caption{\textbf{Matrices in C3SR format used for matrix-vector multiplication benchmarking.} Number of elements is displayed for each array. \V stores double-precision floating-points while all other arrays use 32 bit-wide integers. Additionally, the matrix's size in CSR representation is listed.}
+      \caption[Matrices in C3SR format used for matrix-vector multiplication benchmarking.]{\textbf{Matrices in C3SR format used for matrix-vector multiplication benchmarking.} Number of elements is displayed for each array. \V stores double-precision floating-points while all other arrays use 32 bit-wide integers. Additionally, the matrix's size in CSR representation is listed.}
       \label{fig:matrix_stats}
     \end{figure}
 
@@ -457,7 +465,7 @@
     \begin{figure}[!ht]
       \centering
       \includegraphics[width=0.9\textwidth]{assets/eigen_vs_c3sr_baseline}
-      \caption{\textbf{Performance comparison of the CSR format against the C3SR format on structured grid matrices.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. As the CSR format's representation of the different matrices is identical except for differing numeric values the arithmetic performance is the same save for statistical variance.}
+      \caption[Performance comparison of the CSR format against the C3SR format on structured grid matrices.]{\textbf{Performance comparison of the CSR format against the C3SR format on structured grid matrices.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. As the CSR format's representation of the different matrices is identical except for differing numeric values the arithmetic performance is the same save for statistical variance.}
       \label{fig:baseline_arithmetic_performance}
     \end{figure}
 
@@ -472,7 +480,7 @@
     \begin{figure}[!ht]
       \centering
       \includegraphics[width=0.9\textwidth]{assets/arithmetic_performance}
-      \caption{\textbf{Performance of matrix-vector multiplication.}}
+      \caption[Performance of vectorized matrix-vector multiplication scheme compared to baseline implementation.]{\textbf{Performance of vectorized matrix-vector multiplication scheme compared to baseline implementation.}}
       \label{fig:arithmetic-performance}
     \end{figure}
 
