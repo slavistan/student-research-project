@@ -457,13 +457,13 @@
     \begin{figure}[!ht]
       \centering
       \includegraphics[width=0.9\textwidth]{assets/eigen_vs_c3sr_baseline}
-      \caption{\textbf{Performance comparison of the CSR format against the C3SR format on structured grid matrices.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. As the CSR format's representation of the different matrices is identical except for different numeric values the arithmetic performance is the same save for some minor statistical variance.}
+      \caption{\textbf{Performance comparison of the CSR format against the C3SR format on structured grid matrices.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. As the CSR format's representation of the different matrices is identical except for differing numeric values the arithmetic performance is the same save for statistical variance.}
       \label{fig:baseline_arithmetic_performance}
     \end{figure}
 
-    By design of the C3SR format it outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the smaller matrix entailing speed-up factors of roughly 2, 13, and 3.
+    By design of the C3SR format it outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the smaller matrix entailing speed-up factors of approximately 2, 13, and 3.
 
-    + NUMA-aware memory allocation vs CSR uses open-MP (no NUMA) + dynamic overhead.
+    Despite the clear performance benefits the above results have to be qualified further as the implementation of the C3SR format\footnote{https://mp-force.ziti.uni-heidelberg.de/shuell/c3srmatrix} uses a NUMA-aware memory allocation scheme for its data arrays suitable for the multi-socket systems utilized for the benchmarks. Conversely, the Eigen C++ library, a general purpose linear algebra and numerics framework, does not tailor its data fields' memory layout in such a way which might lead to performance penalties due to a data distribution inadequate for the access patterns of the multi-threaded arithmetic. Additionally, Eigen internally uses the multi-threading framework OpenMP \cite{openmp:website} which entails a certain dynamic overhead not present in the implementation of the C3SR format.
 
   \subsection{Performance of SIMD Matrix-Vector Multiplication}
 
