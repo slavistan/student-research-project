@@ -10,3 +10,5 @@
 *.fls
 *.run.xml
 *.xdv
+main.toc
+main.lof

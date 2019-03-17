@@ -64,6 +64,8 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 \newpage
 \section{Introduction}
 
+  This section introduces two notions fundamental to the ideas developed in this report, the general purpose \emph{compressed sparse row} sparse matrix storage format (CSR) and, secondly, \emph{structured grid matrices} aswell as their usage in the natural sciences and their particular structure.
+
   \subsection{Compressed Sparse Row Matrix Storage Format}
 
     The compressed sparse row (CSR) format is a widely used storage format for sparse matrices. Unlike other popular sparse matrix storage formats such as the diagonal storage format (DIA) the CSR format is not tailored to any special type of matrix but is a general purpose storage format which makes no assumptions about the matrix's shape or its distribution of non-zeros. The CSR format can be considered an improvement to the naive coordinate format (COO) in that each non-zero's row index is no longer explicitly stored \cite{Bell2011}.
@@ -143,7 +145,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 
     The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' discretization schemes. In general, the non-zeros' numeric values are independent from their location within the matrix but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields structured grid matrices whose 'elements' are themselves square matrices \cite{Godwin2013}.
 
-    The sparse matrices relevant to this work areany sparse matrices which contain one or more sets of rows whose non-zero's column indices are identical save for a fixed offset. Structured grid matrices arising from the procedure mentioned above have one such set to which the overwhelming majority of rows belong corresponding to all inner grid nodes (such as in the example in Figure \ref{fig:laplacian_example}). However, all of the ideas presented hereinafter may be applied to any sparse matrix whose structure exhibits any degree of repetiveness.
+    The sparse matrices relevant to this work are any sparse matrices which contain one or more sets of rows whose non-zero's column indices are identical save for a fixed offset. Structured grid matrices arising from the procedure mentioned above have one such set to which the overwhelming majority of rows belong corresponding to all inner grid nodes (such as in the example in Figure \ref{fig:laplacian_example}). However, all of the ideas presented hereinafter may be applied to any sparse matrix whose structure exhibits any degree of repetiveness.
 
 \section{Threefold Compressed Sparse Row Sparse Matrix Storage Format (C3SR)}
 
@@ -433,7 +435,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 
     Note that $n_d = 0 \Leftrightarrow \partial_d W(\vec{r}) \equiv 0$, introducing a periodicity in the corresponding dimension $d$. This feature is utilized to control the periodicity in the matrix's values.
 
-    For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second, larger matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil operation.
+    For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second, larger matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil operation. The matrices' structures are their grid's equivalent of the example shown in Figure \ref{fig:laplacian_example}.
 
     The first, smaller matrix's values are identical inbetween two rows whose structure is the same, such that \V and \J contain the same number of elements. The second, larger matrix's rows' values are all unique and thus \V contains approximately $7 \cdot 100^3$ elements (Figure \ref{fig:matrix_stats}).
 
@@ -469,7 +471,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
       \label{fig:baseline_arithmetic_performance}
     \end{figure}
 
-    By design of the C3SR format it outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the smaller matrix entailing speed-up factors of approximately 2, 13, and 3.
+    By design of the C3SR format outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the smaller matrix entailing speed-up factors of approximately 2, 13, and 3.
 
     Despite the clear performance benefits the above results have to be qualified further as the implementation of the C3SR format\footnote{https://mp-force.ziti.uni-heidelberg.de/shuell/c3srmatrix} uses a NUMA-aware memory allocation scheme for its data arrays suitable for the multi-socket systems utilized for the benchmarks. Conversely, the Eigen C++ library, a general purpose linear algebra and numerics framework, does not tailor its data fields' memory layout in such a way which might lead to performance penalties due to a data distribution inadequate for the access patterns of the multi-threaded arithmetic. Additionally, Eigen internally uses the multi-threading framework OpenMP \cite{openmp:website} which entails a certain dynamic overhead not present in the implementation of the C3SR format.
 
