@@ -162,11 +162,11 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
     Thus, in order to represent the column indices of a matrix row's non-zeros the C3SR format utilizes three arrays:
 
     \begin{description}[align = left, labelwidth = 4cm]
-      \item [JP - \emph{Peg column index}] \hfill \\
+      \item [JP - \emph{Peg column indices}] \hfill \\
         Column index of each row's first non-zero. One element per row in matrix.
       \item [J - \emph{Column index patterns}] \hfill \\
         Column index position offsets of the rows' non-zeros relative to the peg column index for each row. Only unique patterns are stored.
-      \item [JS - \emph{Patterns' index-pointer}] \hfill \\
+      \item [JS - \emph{Patterns' index-pointers}] \hfill \\
         Index-pointer to each row's first element within \J. One element per row in matrix.
     \end{description}
 
@@ -203,14 +203,14 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
     \begin{description}[align = left, labelwidth = 4cm]
       \item [\V - \emph{Values}] \hfill \\
         Non-zeros' numerical values. Duplicates across rows with the same pattern are stored only once.
-      \item [\VS - \emph{Values' index-pointer}] \hfill \\
+      \item [\VS - \emph{Values' index-pointers}] \hfill \\
         Index-pointer to each row's first element within \V. One element per row in matrix.
     \end{description}
 
     A sixth and final array \RS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but, in contrast to the general CSR format, may not contain the information about how long the segment pertaining to the row within those arrays is, since, by virtue of the patterns' and values' storage schemes, multiple rows' non-zeros' patterns and values may correspond to the very same portion of \J and \V such that the end of that portion cannot be retrieved from the corresponding index-pointer arrays \JS and \VS as could be done for the CSR format by taking the difference of two consecutive index-pointers.
 
     \begin{description}[align = left, labelwidth = 4cm]
-      \item [\RS - \emph{Row Size}] \hfill \\
+      \item [\RS - \emph{Row sizes}] \hfill \\
         Number of non-zeros for each row. One element per row in matrix.
     \end{description}
 
@@ -238,7 +238,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
           \JS & : & 0 & 0 & 3 & 3 &   &   &   \\
            \V & : & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
           \VS & : & 0 & 0 & 3 & 5 &   &   &   \\
-         \RS & : & 3 & 3 & 2 & 2 &   &   &   \\
+          \RS & : & 3 & 3 & 2 & 2 &   &   &   \\
         \end{matrix}
         $$
       \end{minipage}
@@ -246,7 +246,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
       \label{fig:c3sr_example_full}
     \end{figure}
 
-    TODO: It is evidet from the storage scheme that structured grid matrices such as fig4 will be shrunk to very small sizes while the beneficial property (beneficial to matvecmult) that each rows non-zeros column indices and values are stored contiguously is preserved.
+    TODO: It is evidet from the storage scheme that structured grid matrices such as fig4 will be shrunk to very small sizes while the beneficial property (beneficial to matvecmult) that each rows non-zeros column indices and values are stored contiguously is preserved. --> Beispiel-Matrix wie fig4 + TOSAY: "This fact does not change even if multidimensional entities are used producing block matrixies".
 
   \subsection{Matrix-Vector Multiplication Schemes} \label{subsec:matrix-vector-multiplication-schemes}
 
@@ -473,6 +473,8 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
     By design of the C3SR format outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the smaller matrix entailing speed-up factors of approximately 2, 13, and 3.
 
     Despite the clear performance benefits the above results have to be qualified further as the implementation of the C3SR format\footnote{https://mp-force.ziti.uni-heidelberg.de/shuell/c3srmatrix} uses a NUMA-aware memory allocation scheme for its data arrays suitable for the multi-socket systems utilized for the benchmarks. Conversely, the Eigen C++ library, a general purpose linear algebra and numerics framework, does not tailor its data fields' memory layout in such a way which might lead to performance penalties due to a data distribution inadequate for the access patterns of the multi-threaded arithmetic. Additionally, Eigen internally uses the multi-threading framework OpenMP \cite{openmp:website} which entails a certain dynamic overhead not present in the implementation of the C3SR format.
+
+    TODO: Formulierung übernehmen aus https://scicomp.stackexchange.com/questions/2028/portable-multicore-numa-memory-allocation-initialization-best-practices
 
   \subsection{Performance of SIMD Matrix-Vector Multiplication}
 
