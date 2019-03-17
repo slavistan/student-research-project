@@ -149,15 +149,15 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 
 \section{Threefold Compressed Sparse Row Sparse Matrix Storage Format (C3SR)}
 
-  Evidently, representing a structured grid matrix using the regular CSR format is highly suboptimal, as it has no means of capturing the apparent repetetiveness of the structure. While at first glance the diagonal format might seem an appealing choice for the types of matrices introduced in the previous section, real-life problems produce matrices which are possibly only locally structured, i.e. they contain multiple fully structured sections corresponding to the multiple structured grid regions of the overall heterogeneous domain (Figure \ref{fig:refined_structured_grid}), which need not be aligned in a way to produce a diagonal structure at all. For such matrices the diagonal storage format is highly suboptimal \cite{Bell2011}. Thus a more flexible approach is taken adapting the CSR format to suit the characteristics of structured grid matrices.
+  Evidently, representing a structured grid matrix using the regular CSR format is highly suboptimal, as it has no means of capturing the apparent repetetiveness of the structure. While at first glance the diagonal format might seem an appealing choice for the types of matrices introduced in the previous section, real-life problems produce matrices which are possibly only locally structured, i.e. they contain multiple fully structured sections corresponding to the multiple structured grid regions of the overall heterogeneous domain (Figure \ref{fig:refined_structured_grid}), which need not be aligned in a way to produce a diagonal structure at all. For such matrices the diagonal storage format is highly suboptimal \cite{Bell2011}. Thus a more flexible approach is taken adapting the general purpose CSR format to better suit the characteristics of structured grid matrices.
 
-  This section introduces the data layout and the matrix-vector multiplication scheme of the threefold compressed sparse row matrix storage format (C3SR). Its aim is to optimize arithmetic performance of matrix-vector multiplications involving structured grid matrices by improving data locality through a structurally-aware space-saving storage scheme and by implementing an efficient arithmetic scheme capable of profiting from modern computer architectures' hardware assets.
+  This section introduces the data layout and the matrix-vector multiplication scheme of the \emph{threefold compressed sparse row} matrix storage format (C3SR). Its raison d'être is to optimize arithmetic performance of matrix-vector multiplications involving structured grid matrices by improving data locality through a structurally-aware space-saving storage scheme and by implementing an efficient arithmetic scheme capable of profiting from modern computer architectures' hardware assets.
 
   \subsection{Data layout and storage scheme}
 
-    It is cruicial to observe that, in the most general case, the index patterns' regularity is not shared by the non-zero elements' numerical values. While two or more rows may share the same pattern their corresponding values need not be similar to each other at all. To prevent that a lack of common regularity impedes optimizing the storage requirements of one or the other it is hence necessary to decouple the representation of a row's non-zeros column index positions from the representation of their numerical values. The C3SR format accounts for this circumstance and maintains separate data structures for the non-zeros' column indices and their values.
+    It is cruicial to observe that, in the most general case, a regularity inherent to a structured grid matrix's non-zeros' column indices is not shared by the non-zeros' numerical values. While the non-zeros of two or more rows may share the same column indices, save for a possible offset, their corresponding values need not be similar to each other at all. To prevent that a lack of common regularity impedes optimizing the storage of one or the other it is thus necessary to decouple the representation of a row's non-zeros' column index positions from the representation of their numerical values. The C3SR format accounts for this circumstance and maintains separate data structures for the non-zeros' column indices and their values. Hence the nomenclature of the C3SR format, as it is based on the idea of the CSR format and adds another two potential layers of compression: one for the column indices and and one for the values.
 
-    Based on the observation that structured grid matrices contain many rows whose non-zeros are located at the same positions except for a possible offset the C3SR format decomposes the column-index positions into the column index of the row's first non-zero element, referred to as the row's peg hereinafter, and the relative column indices of all of the row's non-zeros with respect to the first non-zero's column index, i.e. the relative offsets with respect to the peg index. The latter column index offsets relative to the peg index shall be called the row's column index pattern, or simply the row's pattern. Naturally, only unique patterns are stored, drastically shrinking the storage requirements of such matrices whose majority of rows exhibit the same pattern.
+    Based on the observation that structured grid matrices contain many rows whose non-zeros are located at the same positions except for a possible offset the C3SR format decomposes the column-index positions into the column index of the row's first non-zero element, referred to as the \emph{row's peg} hereinafter, and the relative column indices of all of the row's non-zeros with respect to the first non-zero's column index, i.e. the relative offsets with respect to the peg index. The latter column index offsets relative to the peg index shall be called the \emph{row's column index pattern}, or simply the \emph{row's pattern}. Naturally, only unique patterns are stored, drastically shrinking the storage requirements of such matrices whose majority of rows exhibit the same pattern.
 
     Thus, in order to represent the column indices of a matrix row's non-zeros the C3SR format utilizes three arrays:
 
@@ -165,9 +165,9 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
       \item [JP - \emph{Peg column index}] \hfill \\
         Column index of each row's first non-zero. One element per row in matrix.
       \item [J - \emph{Column index patterns}] \hfill \\
-        Column index position offsets of the rows' non-zeros relative to peg column index for each row. Only unique patterns are stored.
-      \item [JS - \emph{Pattern index pointer}] \hfill \\
-        Index pointer to each row's first element within \J. One element per row in matrix.
+        Column index position offsets of the rows' non-zeros relative to the peg column index for each row. Only unique patterns are stored.
+      \item [JS - \emph{Patterns' index-pointer}] \hfill \\
+        Index-pointer to each row's first element within \J. One element per row in matrix.
     \end{description}
 
     An example matrix and its corresponding structural information are given in Figure \ref{fig:c3sr_example_structure}.
@@ -188,26 +188,26 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
         \centering
         $$
         \begin{matrix}
-          \JP & : & 1 & 0 & 2 &   &   \\
+          \JP & : & 1 & 1 & 2 &   &   \\
            \J & : & 0 & 2 & 3 & 0 & 3 \\
           \JS & : & 0 & 3 & 0 &   &   \\
         \end{matrix}
         $$
       \end{minipage}
-      \caption[Matrix with corresponding C3SR representation (structural information only).]{\textbf{Matrix with corresponding C3SR representation (structural information only).} The non-zeros are denoted as black dots. The $0^{\text{th}}$ and $2^{\text{th}}$ row exhibit the same column index pattern $\big(0,2,3\big)$ at different peg index positions of $1$ and $2$, respectively, thus the $0^{\text{th}}$ and the $2^{\text{th}}$ element of \JS point \J[0], which is the first element of this unique pattern. The $1^{\text{th}}$ row has a unique pattern which is stored after the previous pattern within \J at offset $3$ which \JS[1] accordingly points.}
+      \caption[Matrix with corresponding C3SR representation (structural information only).]{\textbf{Matrix with corresponding C3SR representation (structural information only).} The non-zeros are denoted as black dots. The $0^{\text{th}}$ and $2^{\text{th}}$ row exhibit the same column index pattern $\big(0,2,3\big)$ at different peg index positions of $1$ and $2$, respectively. Thus the $0^{\text{th}}$ and the $2^{\text{th}}$ element of \JS point \J[0], which is the first element of this unique pattern. The $1^{\text{th}}$ row has a unique pattern which is stored after the previous pattern within \J at offset $3$ which \JS[1] accordingly points.}
       \label{fig:c3sr_example_structure}
     \end{figure}
 
-    The matrix's non-zeros' numerical values are represented using two dense arrays \V, which contains the values and \VS, the index-pointer into \V which relates to \V in the same way \JS relates to \J. If multiple rows exhibit the same pattern and their values match at the same time the values are stored only once within \V which allows for efficient matrix-vector multiplication schemes shown below.
+    The matrix's non-zeros' numerical values are represented using two dense arrays: \V, which contains the actual values and \VS, the index-pointer into \V which relates to \V in the same way \JS relates to \J. The storage in \V is subject to an important caveat: if multiple rows exhibit the same pattern and their values match at the same time the values are stored only once within \V. This is a basic requisite for the vectorized matrix-vector multiplication schemes introduced in \ref{subsubsec:vectorized-simd-multiplication-scheme}.
 
     \begin{description}[align = left, labelwidth = 4cm]
       \item [\V - \emph{Values}] \hfill \\
-        Non-zeros' numerical values. Duplicates across rows with same pattern are stored only once.
-      \item [\VS - \emph{Values Index Pointer}] \hfill \\
-        Index pointer to each row's first element within \V. One element per row in matrix.
+        Non-zeros' numerical values. Duplicates across rows with the same pattern are stored only once.
+      \item [\VS - \emph{Values' index-pointer}] \hfill \\
+        Index-pointer to each row's first element within \V. One element per row in matrix.
     \end{description}
 
-    A sixth and final array \RS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but may not contain the information about how long the segment pertaining to the row within those arrays is.
+    A sixth and final array \RS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but, in contrast to the general CSR format, may not contain the information about how long the segment pertaining to the row within those arrays is, since, by virtue of the patterns' and values' storage schemes, multiple rows' non-zeros' patterns and values may correspond to the very same portion of \J and \V such that the end of that portion cannot be retrieved from the corresponding index-pointer arrays \JS and \VS as could be done for the CSR format by taking the difference of two consecutive index-pointers.
 
     \begin{description}[align = left, labelwidth = 4cm]
       \item [\RS - \emph{Row Size}] \hfill \\
@@ -242,12 +242,11 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
         \end{matrix}
         $$
       \end{minipage}
-      \caption[Matrix with corresponding full C3SR representation.]{\textbf{Matrix with corresponding full C3SR representation.} The $0^{\text{th}}$ and $2^{\text{th}}$ rows exhibit the same pattern and the same values, thus the values are stored only once. The last two rows also share a common pattern with different values.}
+      \caption[Matrix with corresponding full C3SR representation.]{\textbf{Matrix with corresponding full C3SR representation.} The $0^{\text{th}}$ and $2^{\text{th}}$ rows exhibit the same pattern and the same values, thus the values are stored only once. The last two rows also share a common pattern but with different values.}
       \label{fig:c3sr_example_full}
     \end{figure}
 
-    /TODO? Nomenclature section after abstract?
-    /TODO: 3fold -compression erklären :p
+    TODO: It is evidet from the storage scheme that structured grid matrices such as fig4 will be shrunk to very small sizes while the beneficial property (beneficial to matvecmult) that each rows non-zeros column indices and values are stored contiguously is preserved.
 
   \subsection{Matrix-Vector Multiplication Schemes} \label{subsec:matrix-vector-multiplication-schemes}
 
