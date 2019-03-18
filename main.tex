@@ -138,14 +138,14 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
             \includegraphics[width=0.9\textwidth]{fig/laplacian_example.png} % second figure itself
         \end{minipage}
         \caption[Structured grid and corresponding matrix for a simple Laplacian.]{\textbf{Structured grid and corresponding matrix for a simple Laplacian} $\nabla^2 u(\vec{r}) = 0$. The Laplace-operator is approximated by the conventional 3-axial symmetric discretization scheme, equivalent to a symmetric 7-point stencil operation.}
-        \label{fig:laplacian_example}
+        \label{fig:laplacian-example}
     \end{figure}
 
-    The solution procedure yields a sparse linear system whose solution is approximated by iterative methods involving repeated sparse matrix-vector-multiplications $Ax = b$ where the matrix $A$ encodes the adjacency structure of the grid. For a structured grid the resulting matrix's distribution of non-zeros has a very distinct pattern. Generally speaking, such matrices consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes. A grid and its corresponding sparse matrix's structure are depicted in Figure \ref{fig:laplacian_example} for a simple Laplacian problem.
+    The solution procedure yields a sparse linear system whose solution is approximated by iterative methods involving repeated sparse matrix-vector-multiplications $Ax = b$ where the matrix $A$ encodes the adjacency structure of the grid. For a structured grid the resulting matrix's distribution of non-zeros has a very distinct pattern. Generally speaking, such matrices consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes. A grid and its corresponding sparse matrix's structure are depicted in Figure \ref{fig:laplacian-example} for a simple Laplacian problem.
 
     The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' discretization schemes. In general, the non-zeros' numeric values are independent from their location within the matrix but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields structured grid matrices whose 'elements' are themselves square matrices \cite{Godwin2013}.
 
-    The sparse matrices relevant to this work are any sparse matrices which contain one or more sets of rows whose non-zero's column indices are identical save for a fixed offset. Structured grid matrices arising from the procedure mentioned above have one such set to which the overwhelming majority of rows belong corresponding to all inner grid nodes (such as in the example in Figure \ref{fig:laplacian_example}). However, all of the ideas presented hereinafter may be applied to any sparse matrix whose structure exhibits any degree of repetiveness.
+    The sparse matrices relevant to this work are any sparse matrices which contain one or more sets of rows whose non-zero's column indices are identical save for a fixed offset. Structured grid matrices arising from the procedure mentioned above have one such set to which the overwhelming majority of rows belong corresponding to all inner grid nodes (such as in the example in Figure \ref{fig:laplacian-example}). However, all of the ideas presented hereinafter may be applied to any sparse matrix whose structure exhibits any degree of repetiveness.
 
 \section{Threefold Compressed Sparse Row Sparse Matrix Storage Format (C3SR)}
 
@@ -207,7 +207,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
         Index-pointer to each row's first element within \V. One element per row in matrix.
     \end{description}
 
-    A sixth and final array \RS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but, in contrast to the general CSR format, may not contain the information about how long the segment pertaining to the row within those arrays is, since, by virtue of the patterns' and values' storage schemes, multiple rows' non-zeros' patterns and values may correspond to the very same portion of \J and \V such that the end of that portion cannot be retrieved from the corresponding index-pointer arrays \JS and \VS as could be done for the CSR format by taking the difference of two consecutive index-pointers.
+    A sixth and final array \RS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but, in contrast to the general CSR format, may not contain the information about how long the segment pertaining to the row within those arrays is. By virtue of the patterns' and values' storage schemes multiple rows' non-zeros' patterns and values may correspond to the very same portion of \J and \V such that the end of that portion cannot be retrieved from the corresponding index-pointer arrays \JS and \VS as could be done for the CSR format by taking the difference of two consecutive index-pointers from \RP.
 
     \begin{description}[align = left, labelwidth = 4cm]
       \item [\RS - \emph{Row sizes}] \hfill \\
@@ -246,11 +246,46 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
       \label{fig:c3sr_example_full}
     \end{figure}
 
-    TODO: It is evidet from the storage scheme that structured grid matrices such as fig4 will be shrunk to very small sizes while the beneficial property (beneficial to matvecmult) that each rows non-zeros column indices and values are stored contiguously is preserved. --> Beispiel-Matrix wie fig4 + TOSAY: "This fact does not change even if multidimensional entities are used producing block matrixies".
+    By design of the storage scheme structured grid matrices such as the example shown in Figure \ref{fig:laplacian-example} require very few elements within \J as a structured grid's inner nodes, whose corresponding rows in the structured grid matrix exhibit the same pattern which is only stored once, comprise the vast majority of all nodes. Depending on the underlying physical problem this property also applies to \V if all rows of an equal pattern share the same set of values. 
+
+    As will be detailed in the following section \ref{subsec:matrix-vector-multiplication-schemes} a matrix-vector multiplication involves copiously accessing \J and \V the C3SR format greatly improves the spacial locality of the data fields most pertinent to arithmetic. A best-case example is given in Figure \ref{fig:c3sr-example-best-case}.
+
+    \begin{figure}[ht]
+      \centering
+      \begin{minipage}{0.5\textwidth}
+        \centering
+        $$
+        \begin{pmatrix}
+          1 & 0 & 2 & 0 & 3 & 4 & 0 & 0 & 0 & 0 \\
+          0 & 1 & 0 & 2 & 0 & 3 & 4 & 0 & 0 & 0 \\
+            &   & \ddots &   & \ddots &   & \ddots & \ddots \\
+          0 & 0 & 0 & 1 & 0 & 2 & 0 & 3 & 4 & 0 \\
+          0 & 0 & 0 & 0 & 1 & 0 & 2 & 0 & 3 & 4 \\
+        \end{pmatrix}
+        $$
+      \end{minipage}
+      \begin{minipage}{0.4\textwidth}
+        \centering
+        $$
+        \begin{matrix}
+          \JP & : & 0 & 1 & 2 & 3 & \cdots & N-1 \\
+           \J & : & 0 & 2 & 4 & 5 &        &     \\
+          \JS & : & 0 & 0 & 0 & 0 & \cdots &  0  \\
+           \V & : & 1 & 2 & 3 & 4 &        &     \\
+          \VS & : & 0 & 0 & 0 & 0 & \cdots &  0  \\
+          \RS & : & 4 & 4 & 4 & 4 & \cdots &  4  \\
+        \end{matrix}
+        $$
+      \end{minipage}
+      \caption[Best-case sparse matrix with corresponding C3SR representation.]{\textbf{Best-case sparse matrix with corresponding C3SR representation.} The matrix exhibits a single pattern and all of its rows have the same values leading to minimally sized \J and \V optimal for the repeated accesses required for matrix-vector multiplication.}
+      \label{fig:c3sr-example-best-case}
+    \end{figure}
+
+    Note that a structured grid matrix' structure is exclusively diagonal or locally uniform, i.e. the non-zeros either align into multiple diagonals as in Figure \ref{fig:laplacian-example} or contain blocks of square matrices when solving for higher-dimensional entities. Thus the concept of decomposing a row's non-zeros' column indices into its peg index and pattern is slightly dedundant but is retained for the sake of flexibility. Also, low-level optimizations such as the omission of a row's first element in \J, which is always $0$ using the aforementioned storage scheme, are not detailed for the sake of clarity.
 
   \subsection{Matrix-Vector Multiplication Schemes} \label{subsec:matrix-vector-multiplication-schemes}
 
-    // TODO: Intro text
+    Aside of the basic CSR-like matrix-vector multiplcation scheme the C3SR format's storage scheme allows for a vectorized arithmetic scheme for structured grid matrices. This section details the different matrix-vector multiplication schemes whose performance is then gauged in the subsequent section.
 
     \subsubsection{Basic CSR-like Multiplication Scheme} \label{subsubsec:basic-csr-like-multiplication-scheme}
 
@@ -430,11 +465,11 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 
     For the purpose of gauging the arithmetic performance test matrices are created in CSR format which are then converted to C3SR format. These matrices resemble the structure of the structured grid matrices introduced above and are created by iterating through a 3D grid of fixed integral dimensions X, Y, Z and applying a given stencil operation which encodes the desired adjacency relationship of the grid. Nodes requested by the stencil but missing from the grid, i.e.  nodes on the grid's outer borders are omitted, i.e. their corresponding entries in the adjacency matrix carry a zero which is equivalent to Dirichlet-type boundary conditions.
 
-    The matrix's non-zero entries' numeric values are obtained from evaluating a sinusoidal function at the geometric center point $\vec{r} = (x, y, z)$ inbetween the two nodes in question whereby each Cartesian component $x, y, z$ is scaled by its coordinate's span $X, Y, Z$. An additional offset serves to prevent that entries in the matrix correponding to adjacent nodes according to the stencil incidentally evaluate to 0. The function utilized is $$W(x,y,z; n_x, n_y, n_z) = 2 + \sum \limits_{d \in \{x,y,z\}} \sin{\frac{d}{d_{\text{max}}} \cdot \pi \cdot n_d} $$ where $n_x, n_y, n_z$ are periodicity parameters for each dimensions. The matrix in Figure \ref{fig:laplacian_example} has been created using this method.
+    The matrix's non-zero entries' numeric values are obtained from evaluating a sinusoidal function at the geometric center point $\vec{r} = (x, y, z)$ inbetween the two nodes in question whereby each Cartesian component $x, y, z$ is scaled by its coordinate's span $X, Y, Z$. An additional offset serves to prevent that entries in the matrix correponding to adjacent nodes according to the stencil incidentally evaluate to 0. The function utilized is $$W(x,y,z; n_x, n_y, n_z) = 2 + \sum \limits_{d \in \{x,y,z\}} \sin{\frac{d}{d_{\text{max}}} \cdot \pi \cdot n_d} $$ where $n_x, n_y, n_z$ are periodicity parameters for each dimensions. The matrix in Figure \ref{fig:laplacian-example} has been created using this method.
 
     Note that $n_d = 0 \Leftrightarrow \partial_d W(\vec{r}) \equiv 0$, introducing a periodicity in the corresponding dimension $d$. This feature is utilized to control the periodicity in the matrix's values.
 
-    For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second, larger matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil operation. The matrices' structures are their grid's equivalent of the example shown in Figure \ref{fig:laplacian_example}.
+    For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second, larger matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil operation. The matrices' structures are their grid's equivalent of the example shown in Figure \ref{fig:laplacian-example}.
 
     The first, smaller matrix's values are identical inbetween two rows whose structure is the same, such that \V and \J contain the same number of elements. The second, larger matrix's rows' values are all unique and thus \V contains approximately $7 \cdot 100^3$ elements (Figure \ref{fig:matrix_stats}).
 
