@@ -104,7 +104,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 
     The CSR format serves as a starting point for the C3SR sparse matrix storage format for structured grid matrices which is the focal point of this work.
 
-  \subsection{Structured Grid Matrices}
+  \subsection{Structured Grid Matrices} \label{subsec:structured-grid-matrices}
 
     Structured grid computations are ubiquitously used for physical simulations in scientific fields such as, for example, computational fluid dynamics, electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are logically rectangular, i.e. they are uniquely identified by a tuple of coordinates and v.v., such as $(i, j, k)$ for three dimensions (Figure \ref{fig:structured_grid_example}).
 
@@ -289,9 +289,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 
     \subsubsection{Basic CSR-like Multiplication Scheme} \label{subsubsec:basic-csr-like-multiplication-scheme}
 
-      Algorithmically, the basic row-by-column matrix-vector multiplication scheme of the C3SR format is similar to that of the CSR format (Figure \ref{fig:c3sr_matvecmult_basic}). Differences arise only in the C3SR's additional offset $\JP[k]$ which is applied to each relative column index prior to accessing the argument vector $x$.
-
-      As the C3SR format utilizes additional arrays to store index-pointers the number of memory accesses increases likewise. Assuming a general case of a large sparse matrix devoid of any regularity in its structue whose size exceeds the machine's cache the CSR format's arithmetic performance will be better proportional to the reduction of loads from memory with respect to the C3SR format as this is a memory bound computation involving few trivial arithmetic operations.
+      Algorithmically, the basic row-by-column matrix-vector multiplication scheme of the C3SR format is similar to that of the CSR format. Differences arise only in the C3SR's additional offset $\JP[k]$ which is applied to each relative column index prior to accessing the argument vector $x$ as shown in Figure \ref{fig:c3sr_matvecmult_basic}.
 
       \begin{figure}[ht]
         \centering
@@ -302,21 +300,25 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
           \text{C3SR} & : & \sum \limits_{\alpha = 0}^{\RS[k] - 1} & \bigg( & \V\big[\VS[k] + \alpha\big] & \cdot & x\bigg[\J\big[\JS[k] + \alpha\big] + \JP[k]\bigg] & \bigg) \\
         \end{matrix}
         $$
-        \caption[Matrix-vector multiplication schemes of C3SR and CSR format in comparison.]{\textbf{Matrix-vector multiplication schemes of C3SR and CSR format in comparison.} The $k^{\text{th}}$ component of the product $Ax$ is shown. The C3SR format accesses \V and \J from their dedicated index-pointer arrays while the CSR format utilizes one common row-pointer array. Additionally, the C3SR format requires the relative column indices to be offset by the peg column index for each row.}
+        \caption[Matrix-vector multiplication schemes of the C3SR and CSR format in comparison.]{\textbf{Matrix-vector multiplication schemes of the C3SR and CSR format in comparison.} The $k^{\text{th}}$ component of the product $Ax$ is shown. The C3SR format accesses \V and \J from their dedicated index-pointer arrays while the CSR format utilizes one common row-pointer array \RP. Additionally, the C3SR format requires the relative column indices to be offset by the peg column index for each row.}
         \label{fig:c3sr_matvecmult_basic}
       \end{figure}
 
-      On the flipside, structured matrices facilitate very compact storage allowing a small segment of memory, corresponding to possibly only a few cache lines, to contain the matrix's complete structural information and, depending on the underlying physical problem, even the numeric values. This can drastically improve arithmetic performance of the C3SR format despite the more complex memory access scheme, as will be shown in the benchmark section.
+      As the C3SR format utilizes additional arrays to store index-pointers the number of memory accesses increases likewise. Assuming a general case of a large sparse matrix devoid of any regularity in its structure whose size exceeds the machine's cache capacity the CSR format's arithmetic performance will be better proportional to the difference in the object's size as the above schemes yield memory bound computations involving few trivial arithmetic operations.
+
+      On the flipside, as demonstrated in the previous section structured matrices facilitate very compact storage allowing a small segment of memory, corresponding to possibly only a few cache lines, to contain the matrix's complete structural information and, depending on the underlying physical problem, even the numeric values. This can drastically improve arithmetic performance of the C3SR format despite the more complex memory access scheme as will be shown in the benchmark section.
 
     \subsubsection{Vectorized SIMD Multiplication Scheme} \label{subsubsec:vectorized-simd-multiplication-scheme}
 
-      In addition to the performance gain utilizing the basic multiplication scheme due to better data locality the data layout of a structured matrix in C3SR format allows for the matrix-vector multiplication to be implemented utilizing SIMD parallelism. The matrix's data is layed out in memory in such a way that the matrix-vector multiplication may be performed for multiple rows at a time using vectorization. Depending on the composition of the matrix corresponding to the types of problems mentioned in the introduction three different but very similar multiplication schemes can be devised.
+      In addition to the performance gain utilizing the basic CSR-like multiplication scheme due to better data locality the data layout of a structured matrix in C3SR format allows for the matrix-vector multiplication to be implemented utilizing SIMD parallelism. The matrix's data is layed out in memory in such a way that the matrix-vector multiplication may be performed for multiple rows at a time using vectorization. Depending on the composition of the matrix corresponding to the types of problems mentioned in the introduction (see \ref{subsec:structured-grid-matrices}) three different but very similar multiplication schemes can be devised.
+
+      \paragraph{SIMD Scheme I: Diagonal structure}
 
       Suppose that a horizontal slice of rows $r, \ldots, r+k$ has diagonal structure with the diagonals starting at indices $s, t, \ldots $, such as is depicted in Figure \ref{fig:simd_scheme_diag}. The matrix-vector multiplication for each of the slice's rows is composed of the same number of summands, one per diagonal. Each of the summands is a product of the diagonal's non-zero entry and the argument's corresponding element, starting out with $a_{r,s} \cdot x_s$ for the first diagonal's initial element and $a_{r,t} \cdot x_t$ for the second diagonal. For each subsequent row the matrix element's indices are incremented aswell as the argument vector's index, commencing with $a_{r+1, s+1} \cdot x_{s+1}$ for the first diagonal's second element and accordingly for each other diagonal.
 
-      As each diagonal's summand accesses the argument vector's elements in consecutive fashion, for example $x_s, x_{s+1}, \ldots, x_{s + k}$ for the first diagonal, the multiplication can be vectorized. The other summand's constituents, the diagonal's elements, are accessed at a fixed offset which is equal to the number of diagonals. This is due to the fact that the matrix slice's non-zero elements are stored row-by-row, where each row has the same number of elements. Thus $a_{r,s}$ is located as many elements before $a_{r+1, r+2}$ within \V as there are diagonals.
+      As each diagonal's summand accesses the argument vector's elements in consecutive fashion, for example $x_s, x_{s+1}, \ldots, x_{s + k}$ for the first diagonal, the access to the argument vector's elements can be vectorized. The other summand's constituents, the diagonal's elements, are stored within \V at a fixed stride which is equal to the number of diagonals. This is due to the fact that the matrix slice's non-zero elements are stored row-by-row while each row has the same number of elements. Thus, for the general case when the rows' values don't match, $a_{r, s}$ is located as many elements before $a_{r+1, s+1}$ within \V as there are diagonals.
 
-      In SIMD terms a stride-gather and a load is required for the diagonal's elements and the argument vector, respectively. The two vector registers are then multiplied and the result is then added onto the next product pertaining to the subsequent diagonal.
+      In SIMD terms a stride-gather and a load are required for the diagonal's elements and the argument vector, respectively. The two vector registers are then multiplied and the result is then added onto the next product pertaining to the subsequent diagonal. After the final vectorized addition the result is written into the output buffer using a vectorized load.
 
       \begin{figure}[ht]
         \centering
@@ -360,16 +362,13 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 
         \end{matrix}
         $$
-        %$$
-        %\V: \begin{pmatrix}
-        %  \ldots & a_{r,s} & a_{r,t} & \ldots & a_{r+1,s+1} & a_{r+1,t+1} & \ldots & a_{r+2,s+2} & a_{r+2,t+2} & \ldots \\
-        %\end{pmatrix}
-        %$$
-        \caption[Matrix slice with diagonal structure and corresponding vectorized matrix-vector-multiplication scheme.]{\textbf{Matrix slice with diagonal structure and corresponding vectorized matrix-vector-multiplication scheme.} Each diagonal's elements are located within \V at a fixed stride offset corresponding to the number of diagonals. Depending on the hardware capabilities this may make the gather-load operation more efficient.}
+        \caption[Matrix slice with diagonal structure and corresponding vectorized matrix-vector multiplication scheme.]{\textbf{Matrix slice with diagonal structure (above) and corresponding vectorized matrix-vector-multiplication scheme $\bm{Ax = y}$ (below).} A diagonal's elements are located within \V at a fixed stride equal to the number of diagonals. Depending on the hardware capabilities this may make the gather-load operation more performant.}
         \label{fig:simd_scheme_diag}
       \end{figure}
 
-      For the case of a matrix slice whose structure is diagonal and whose values within each diagonal are identical, e.g. $a_{r,s} = a_{r+1, s+1} = \ldots$ for the first diagonal etc., the multiplication scheme is simplified in that the argument vector's values contained in the vector register are simply scaled by the diagonal's value instead of being subjected to a vectorized multiplication (Figure \ref{fig:simd_scheme_diag_collated}).
+      \paragraph{SIMD Scheme II: Diagonal structure and identical values}
+
+      For the case of a matrix slice whose structure is diagonal and whose rows share the same values, which equates to all values within a diagonal being identical, e.g. $a_{r,s} = a_{r+1, s+1} = \ldots$ for the first diagonal, the previous multiplication scheme is simplified in that the argument vector's values contained in the vector register are simply scaled by the diagonal's value instead of being subjected to a vectorized multiplication (Figure \ref{fig:simd_scheme_diag_collated}).
 
       \begin{figure}[ht]
         \centering
@@ -407,11 +406,13 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
                                                                                                                 \end{bmatrix}
         \end{matrix}
         $$
-        \caption[Matrix slice with diagonal structure and uniform values and corresponding vectorized matrix-vector-multiplication scheme.]{\textbf{Matrix slice with diagonal structure and uniform values and corresponding vectorized matrix-vector-multiplication scheme.} In addition to the diagonal structure the matrix row's values are identical simplifying the arithemtic scheme.}
+        \caption[Matrix slice with diagonal structure and uniform values and corresponding vectorized matrix-vector-multiplication scheme.]{\textbf{Matrix slice with diagonal structure and uniform values (above) and corresponding vectorized matrix-vector-multiplication scheme $\bm{Ax = y}$ (below).} All values within a diagonal are equal simplifying the arithmetic scheme by removing a stride-load operation and a vectorized multiplication in favor of a simple scaling of the argument vector's vector register by the diagonal's value.}
         \label{fig:simd_scheme_diag_collated}
       \end{figure}
 
-      The third practically relevant case are matrix slices whose structure is uniform, i.e. each row's non-zero elements are situated at the same columns. The corresponding vectorized matrix-vector multiplication scheme is again similar to the general case of a diagonal structure. Here the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again located at fixed stride-offsets within \V. Note that for matrices stemming from structured grid computations the values necessarily differ inbetween rows as the matrix would be singular otherwise.
+      \paragraph{SIMD Scheme III: Uniform structure}
+
+      The third practically relevant case which arises from solving PDEs on higher-dimensional entities are matrix slices whose structure is uniform, i.e. each row's non-zero elements are located within columns in the matrix. This leads to the circumstance that the argument vector's element required for the partial sum involing a matrix column is constant for the whole column (see Figure \ref{fig:simd_scheme_uniform}). Thus the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again spread at a fixed stride througout \V. Note that for structured grid matrices the values necessarily differ between rows as the matrix would be singular otherwise. Thus there is no practically relevant situation which collapses to a scalar multiplication.
 
       \begin{figure}[ht]
         \centering
@@ -449,7 +450,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
                                                                                      \end{bmatrix}
         \end{matrix}
         $$
-        \caption[Matrix slice with uniform structure and corresponding vectorized matrix-vector-multiplication scheme.]{\textbf{Matrix slice with uniform structure and corresponding vectorized matrix-vector-multiplication scheme.} Each non-zero column's elements are located within \V at a fixed stride offset corresponding to the number of non-zero columns. As in Figure \ref{fig:simd_scheme_diag} this may improve the performance of loading the SIMD register's values from memory.}
+        \caption[Matrix slice with uniform structure and corresponding vectorized matrix-vector-multiplication scheme.]{\textbf{Matrix slice with uniform structure (above) and corresponding vectorized matrix-vector-multiplication scheme $\bm{Ax=y}$ (below).} Each non-zero column's elements are located within \V at a fixed stride offset corresponding to the number of non-zero columns. As in Figure \ref{fig:simd_scheme_diag} this may improve the performance of loading the SIMD register's values from memory.}
         \label{fig:simd_scheme_uniform}
       \end{figure}
 
