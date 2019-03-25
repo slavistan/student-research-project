@@ -460,7 +460,7 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 
   The matrix-vector multiplication performance of the C3SR format is measured in its CSR-like and vectorized implementations (see \ref{subsec:matrix-vector-multiplication-schemes}). Firstly, a baseline performance is established by comparing the matrix-vector multiplication performance of the C3SR format's CSR-like multiplication scheme introduced in \ref{subsubsec:basic-csr-like-multiplication-scheme} against the CSR format's performance on different structured grid matrices and on three different machines. Secondly, the C3SR format's baseline performance is compared against its vectorized counterpart introduced in \ref{subsubsec:vectorized-simd-multiplication-scheme}.
 
-  The following subsection introduces the structured grid matrices used for the performance benchmarks and their method of acquisition. Subsequently, the results of the performance benchmarks are discussed.
+  The following subsection introduces the structured grid matrices used for the performance benchmarks and their method of acquisition. Subsequently, the results of the performance benchmarks are discussed. Information on the machines used for the benchmarks can be found at the ASC infrastructure wiki\footnote{https://mp-force.ziti.uni-heidelberg.de/kmbeutel/personal-wiki/wikis/ASC-infrastructure} (the KNL was configured to 50\% hybrid mode). All benchmarks were run multi-threaded utilizing the machines' full hardware capabilities.
 
   \subsection{Generation of Structured Grid Matrices as Test Matrices}
 
@@ -506,58 +506,45 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
       \label{fig:baseline_arithmetic_performance}
     \end{figure}
 
-    By design of the C3SR format outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the smaller matrix entailing speed-up factors of approximately 2, 13, and 3.
+    By design of the C3SR format it outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the smaller matrix entailing speed-up factors of approximately 2, 13, and 3.
 
-    Despite the clear performance benefits the above results have to be qualified further as the implementation of the C3SR format\footnote{https://mp-force.ziti.uni-heidelberg.de/shuell/c3srmatrix} uses a NUMA-aware memory allocation scheme for its data arrays suitable for the multi-socket systems utilized for the benchmarks. Conversely, the Eigen C++ library, a general purpose linear algebra and numerics framework, does not tailor its data fields' memory layout in such a way which might lead to performance penalties due to a data distribution inadequate for the access patterns of the multi-threaded arithmetic. Additionally, Eigen internally uses the multi-threading framework OpenMP \cite{openmp:website} which entails a certain dynamic overhead not present in the implementation of the C3SR format.
-
-    TODO: Formulierung übernehmen aus https://scicomp.stackexchange.com/questions/2028/portable-multicore-numa-memory-allocation-initialization-best-practices
+    Despite the clear performance benefits the above results have to be qualified further as the implementation of the C3SR format\footnote{https://mp-force.ziti.uni-heidelberg.de/shuell/c3srmatrix} uses a NUMA-aware memory allocation scheme for its data arrays, correctly distributing them across physical memory, suitable for the multi-socket systems utilized for the benchmarks. Conversely, the Eigen C++ library, a general purpose linear algebra and numerics framework, does not tailor its data fields' memory layout in such a way which might lead to performance penalties due to a data distribution inadequate for the access patterns of the multi-threaded arithmetic. Additionally, Eigen internally uses the multi-threading framework OpenMP \cite{openmp:website} which entails a dynamic overhead not present in the implementation of the C3SR format.
 
   \subsection{Performance of SIMD Matrix-Vector Multiplication}
 
-    The C3SR format's matrix-vector multiplication performance is measured using two different implementations: the CSR-like multiplication scheme (\ref{subsubsec:basic-csr-like-multiplication-scheme}, referred to as the 'baseline implementation' hereinafter) is compared against the SIMD multiplication scheme (\ref{subsubsec:vectorized-simd-multiplication-scheme}) on the two different structured grid matrices introduces in the previous section. The implementation of the SIMD multiplication scheme utilizes the explicit SIMD vectorization library UME::SIMD \cite{umesimd2017}. The results are displayed in Figure \ref{fig:arithmetic-performance}.
+    The C3SR format's vectorized multiplication scheme's performance is measured by comparing it against the baseline performance. The implementation of the vectorized multiplication scheme utilizes the explicit SIMD vectorization library UME::SIMD \cite{umesimd2017}. The results are displayed in Figure \ref{fig:arithmetic-performance}.
 
     \begin{figure}[!ht]
       \centering
       \includegraphics[width=0.9\textwidth]{assets/arithmetic_performance}
-      \caption[Performance of vectorized matrix-vector multiplication scheme compared to baseline implementation.]{\textbf{Performance of vectorized matrix-vector multiplication scheme compared to baseline implementation.}}
+      \caption[Performance of C3SR vectorized matrix-vector multiplication scheme compared to baseline implementation.]{\textbf{Performance of C3SR vectorized matrix-vector multiplication scheme compared to baseline implementation.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown.}
       \label{fig:arithmetic-performance}
     \end{figure}
 
     Sparse matrix-vector multiplication is a memory-bound computation so that the efficacy of a vectorized arithmetic implementation depends very strongly on the amount of data that is required to be read from memory and whether the dynamic overhead involved in determining the applicable SIMD scheme is compensated by a speed-up in arithmetic. This fact is reflected in the measurements as for the large matrix the SIMD implementation is generally slower than the baseline implementation. Only for the small matrix a significant speed-up can be observed on every machine. However, this might be partly due to the fact that the large matrix's SIMD multiplication scheme is less performant as it involves strided loads from memory which might equate to regular gather operations on the hardware used for this benchmark (see \ref{subsubsec:vectorized-simd-multiplication-scheme}).
 
-  \subsection{Data compression}
+  \subsection{Further Considerations}
 
-  --> As previous section show: Speedup mainly due to reduction in total object size. But reduction costs time --> Diminishing returns;
+    By evidence of the performance benchmarks presented in the previous section the basis for the performance gain in arithmetic of the C3SR format with respect to the CSR format for structured grid matrices is the reduction of the matrix's total object size in memory leading to big improvements in data locality during matrix-vector multiplication.
 
-    This plot compares the number of array elements required in the C3SR format to store a fully structured matrix's column index information (green curve) against the baseline size of the equivalent CSR format matrix's column index array (red curve) depending on the partition size utilized for the structural compression. The C3SR format's recorded number of elements comprises the sum of the sizes of the J, JP and JS arrays, respectively. The RS array and the CSR format's row-pointer array are left out of the consideration as they are identical in size. The underlying $50 \times 50 \times 50$ grid contains $125000$ nodes to which the symmetric 7-pt stencil is applied. The numerical values of the matrix are of no concern for its structure.
+    The C3SR format's storage scheme is tailored to minimize the matrix object's size in memory. However, depending on how the matrix object is created in memory, adhering to the storage scheme to its full extent may not be optimal as it might limit parallelism during object construction. The data arrays' contents are strongly coupled such that the workload cannot be trivially spread across multiple threads. Instead, it might be advisable to partition the matrix into equally sized slices whose independent C3SR objects can be created in parallel. Funally, these distinct C3SR objects corresponding to the matrix slices are then transformed into a singular object, by concatenating the data arrays. This would of course require that the index-pointer arrays are offset by the number of rows preceeding their first matrix row.
 
-    The C3SR format's diminishing storage requirements are caused solely by J (blue curve) as JS and JP are constant in size, each containing $125000$ elements, one per matrix row. The size of J exhibits an inverse linear relationship to the partition size, as can be inferred from the straight line's gradient in the double logarithmic plot. This is due to the fact that large grids mainly consist of inner nodes whose corresponding rows in the matrix all share the same pattern. Hence the overwhelming majority of partitions' column index information will condense to 7 elements within J (and one element per row for JS and JP) irrespective of the partition size with exceptions arising only around the few border nodes and their corresponding rows.
+    In order to establish an estimate for an apt partition size Figure \ref{fig:structured_grid_matrix_heap_size} displays the total object size depending on the partition size for the two matrices used for the performance benchmarks. It's evident that there is a point of diminishing returns past whose partition size there is no significant gain in object size reduction. This point is reached when the sizes if \V and \J, the two arrays responsible for the reduction in object size for the C3SR format, fall significantly below the fixed sizes of the remaining arrays, which constitute a minimum to the object size.
 
-    The minimum size of J is determined by the matrix's unique patterns which correspond to 8 corner nodes a 4 adjacent nodes, 12 edge nodes a 5 adjacency nodes, 6 face nodes a 6 adjaceny nodes and the inner nodes with the full 7 adjacency nodes totalling $135$ entries. (TODO: Tikz 3d-draw representative of all nodes creating unique patterns).
+    Thus, the performance benefits of the C3SR format may be kept even when trading larger object sizes in favor of parallelizability of the application.
 
-    TODO: Ausreißer erklären.
     \begin{figure}[ht]
       \centering
-      \includegraphics[width=0.8\textwidth]{fig/structural-compression}
-      \caption*{TODO}
+      \includegraphics[width=0.9\textwidth]{assets/structured_grid_matrix_heap_size}
+      \caption[C3SR matrix object size depending on partition size]{\textbf{C3SR matrix object size depending on partition size.} Numeric values are stored using double precision floating-point numbers while all other arrays utilize 32 bit integers. A point of diminishing returns is reached at a partition size of around 1000, past which the object's total size in memory does not shrink significantly. Thus, creating C3SR objects using partition sizes of 1000 and larger may yield a similar performance while speeding up the creation of the object. For comparison the corresponding CSR format's object size is provided.}
+      \label{fig:structured_grid_matrix_heap_size}
     \end{figure}
 
-    //TODO: Structural compression mit interleaved matrices
 \section{Summary}
+
+  Significant performance benefits concerning matrix-vector multiplication have been achieved
   Advantages: General purpose, good performance, parallel scalability
   Disadv: Static structure (cannot add/remove elements)
-
-OVERALLTODO:
-  TODO: ... will be referred to as 'structured matrix' ==== adjacency matrix of structured grids assuming xyz-indexing
-
-  "No need to fully compress the matrix" --> Diminishing returns; parallelizability
-
-  TODO:
-    - Abschätzung Performance-Gain vs. Speicherzugriffe/Matrixgröße
-    - KNL Cores haben simple Hardware --> Effekt von korrektem Code ist größer
-    - KNL: Falls Chunks zu groß werden fällt Working Set aus Cache
-    - Wozu Partitionierung --> Threads können parallel arbeiten
-    - Throughput-Abschätzung (Bewegte Datenmenge aus DRAM / Dauer); A,x,y (jedes Element wird ~1 mal ausgelesen)
 
 \printbibliography
 \end{document}
