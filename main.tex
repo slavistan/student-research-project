@@ -527,9 +527,9 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
 
     By evidence of the performance benchmarks presented in the previous section the basis for the performance gain in arithmetic of the C3SR format with respect to the CSR format for structured grid matrices is the reduction of the matrix's total object size in memory leading to big improvements in data locality during matrix-vector multiplication.
 
-    The C3SR format's storage scheme is tailored to minimize the matrix object's size in memory. However, depending on how the matrix object is created in memory, adhering to the storage scheme to its full extent may not be optimal as it might limit parallelism during object construction. The data arrays' contents are strongly coupled such that the workload cannot be trivially spread across multiple threads. Instead, it might be advisable to partition the matrix into equally sized slices whose independent C3SR objects can be created in parallel. Funally, these distinct C3SR objects corresponding to the matrix slices are then transformed into a singular object, by concatenating the data arrays. This would of course require that the index-pointer arrays are offset by the number of rows preceeding their first matrix row.
+    The C3SR format's storage scheme is tailored to minimize the matrix object's size in memory. However, depending on how the matrix object is created in memory, adhering to the storage scheme to its full extent may not be optimal as it might limit parallelism during object construction. The data arrays' contents are strongly coupled such that the workload cannot be trivially spread across multiple threads. Instead, it might be advisable to partition the matrix into equally sized slices whose independent C3SR objects can be created in parallel. Finally, these distinct C3SR objects corresponding to the matrix slices are then transformed into a singular object by concatenating the data arrays requiring requiring that the index-pointer arrays are offset by the number of rows preceeding their first matrix row.
 
-    In order to establish an estimate for an apt partition size Figure \ref{fig:structured_grid_matrix_heap_size} displays the total object size depending on the partition size for the two matrices used for the performance benchmarks. It's evident that there is a point of diminishing returns past whose partition size there is no significant gain in object size reduction. This point is reached when the sizes if \V and \J, the two arrays responsible for the reduction in object size for the C3SR format, fall significantly below the fixed sizes of the remaining arrays, which constitute a minimum to the object size.
+    In order to establish an estimate for an apt partition size Figure \ref{fig:structured_grid_matrix_heap_size} displays the total object size depending on the partition size for the two matrices used for the performance benchmarks. It is evident that there exists a point of diminishing returns past whose partition size there is no significant gain in object size reduction. This point is reached when the sizes of \V and \J, the two arrays responsible for the reduction in object size for the C3SR format, fall significantly below the fixed sizes of the remaining arrays, which constitute a minimum to the object size.
 
     Thus, the performance benefits of the C3SR format may be kept even when trading larger object sizes in favor of parallelizability of the application.
 
@@ -540,11 +540,16 @@ Sparse matrix-vector multiplication on structured grid matrices is ubiquitously 
       \label{fig:structured_grid_matrix_heap_size}
     \end{figure}
 
-\section{Summary}
+\section{Conclusion}
 
-  Significant performance benefits concerning matrix-vector multiplication have been achieved
-  Advantages: General purpose, good performance, parallel scalability
-  Disadv: Static structure (cannot add/remove elements)
+  This report introduces the threefold compressed sparse row matrix storage format (C3SR) which has been designed to adapt the CSR format to improve performance of matrix-vector multiplication for structured grid matrices. Significant performance benefits have been demonstrated for two different structured grid matrices based on a $100 \times 100 \times 100$ grid utilizing the basic CSR-like matrix-vector multiplication scheme of the C3SR format.
+
+  A vectorized arithmetic scheme could only be shown to provide performance improvements for the matrix whose object in memory is significantly smaller implying that the matrix-vector multiplication is bound by the system's memory bandwidth. Thus, for the machines utilized for this work the applicability of vectorization for the arithmetic depends strongly on the structured grid matrix in question. For some systems it showed worse performance than the baseline CSR-like implementation.
+
+  \subsection{Future Work}
+
+    In order to gauge arithmetic performance this project uses few synthetic matrices which, albeit being realistic examples, cover only very little of the total spectrum of structured grid matrices which occur in real-life applications. Especially heterogeneous domains as discussed in section \ref{subsec:structured-grid-matrices} yield sparse matrices which are only partially structured. These scenarios have to be investigated separately in terms of arithmetic performance.
 
 \printbibliography
+
 \end{document}
