@@ -64,7 +64,7 @@
 \newpage
 \section{Introduction}
 
-  This section introduces two notions fundamental to the ideas developed in this report, the general purpose \emph{compressed sparse row} sparse matrix storage format (CSR) and, secondly, \emph{sparse banded matrices} as well as their usage in the natural sciences and their particular structure.
+  This section introduces two notions fundamental to the ideas developed in this report, the general purpose \emph{compressed sparse row} matrix storage format (CSR) and, secondly, \emph{sparse banded matrices} as well as their usage in the natural sciences and their particular structure.
 
   \subsection{Compressed Sparse Row Matrix Storage Format}
 
@@ -100,13 +100,13 @@
 
     Thus, as previously mentioned, the CSR format optimizes the storage requirements of general sparse matrices with respect to the naive coordinate format (COO) shrinking the size of the third array from one entry per non-zero element to a single entry per row irrespective of the row's number of non-zeros. Furthermore, the existing literature, in part, utilizes a different nomenclature referring to the arrays as A (values array), JA (column-index array) and IA (row-pointer array), respectively \cite{sparskit}.
 
-    The CSR format's salient feature is the contiguousness of the rows' non-zero elements' values and column indices making it particularly well suited for matrix-vector-multiplication utilizing a conventional row-by-column computation scheme due to ideal data locality. Aside of this characteristic storing the non-zero elements row-by-row as opposed to column-by-column is, to a certain degree, arbitrary and thus exist numerical libraries and toolkits such as the Eigen C++ library \cite{eigen:website} or the Harwell-Boeing sparse matrix collection \cite{harwell-boeing} which utilize the CSR format's conjugate, the compressed sparse column format (CSC), as their default means of storing sparse matrices.
+    The CSR format's salient feature is the contiguousness of the rows' non-zero elements' values and column indices making it particularly well suited for matrix-vector-multiplication utilizing a conventional row-by-column computation scheme due to ideal data locality for the values and column arrays. Aside of this characteristic storing the non-zero elements row-by-row as opposed to column-by-column is a choice and thus exist numerical libraries and toolkits such as the Eigen C++ library \cite{eigen:website} or the Harwell-Boeing sparse matrix collection \cite{harwell-boeing} which utilize the CSR format's conjugate, the compressed sparse column format (CSC), as their default means of storing sparse matrices.
 
     The CSR format serves as a starting point for the C3SR sparse matrix storage format for sparse banded matrices which is the focal point of this work.
 
   \subsection{Sparse Banded Matrices Derived from Structured Grids} \label{subsec:structured-grid-matrices}
 
-    Structured grid computations are ubiquitously used for physical simulations in scientific fields such as, for example, computational fluid dynamics, electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are logically rectangular, i.e. they are uniquely identified by a tuple of coordinates and v.v., such as $(i, j, k)$ for three dimensions (Figure \ref{fig:structured_grid_example}).
+    Structured grid computations are ubiquitously used for physical simulations in scientific fields such as, for example, computational fluid dynamics, electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are uniquely identified by a tuple of coordinates and v.v., such as $(i, j, k)$ for three dimensions (Figure \ref{fig:structured_grid_example}). Such meshes are sometimes referred to as \emph{logically rectangular}.
 
     \begin{figure}[ht]
         \centering
@@ -143,13 +143,13 @@
 
     The solution procedure yields a sparse linear system whose solution is approximated by iterative methods involving repeated sparse matrix-vector-multiplications $Ax = b$ where the matrix $A$ encodes the adjacency structure of the grid. For a structured grid, the resulting matrix's distribution of non-zeros has a very distinct pattern. Generally speaking, such matrices consist of multiple diagonals of non-zero values at fixed intervals while all other elements are zero. The diagonals are almost fully dense with exceptions arising at positions corresponding to nodes at the grid's boundaries, where the regular adjacency pattern of the grid is disturbed by missing nodes. A grid and its corresponding sparse matrix's structure are depicted in Figure \ref{fig:laplacian-example} for a simple Laplacian problem.
 
-    The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' discretization schemes. In general, the non-zeros' numeric values are independent of their location within the matrix but there exist classes of problems where the equivalence of the structure of a set of matrix rows also implies that those rows' non-zeros share the same numeric values. Furthermore, solving problems on higher-dimensional entities such as vectors or matrices yields sparse banded matrices whose 'elements' are themselves square matrices \cite{Godwin2013}.
+    The matrix's non-zero values depend on the underlying physical problem's parameters, the type of PDE and the differential operators' discretization schemes. In general, the non-zeros' numeric values are independent of their location within the matrix but there exist classes of problems where where the presence of a matrix slice whose rows have diagonal structure implies that those rows share the same numeric values. Furthermore, solving problems on multiple coupled entities such as vectors or matrices yields sparse banded matrices whose 'elements' are themselves square matrices \cite{Godwin2013}.
 
     The sparse matrices relevant to this work are any sparse matrices that contain one or more sets of rows whose non-zero's column indices are identical save for a fixed offset. Sparse banded matrices arising from the procedure mentioned above have one such set to which the overwhelming majority of rows belong corresponding to all inner grid nodes (such as in the example in Figure \ref{fig:laplacian-example}). However, all of the ideas presented hereinafter may be applied to any sparse matrix whose structure exhibits any degree of repetitiveness.
 
 \section{Threefold Compressed Sparse Row Sparse Matrix Storage Format (C3SR)}
 
-  Evidently, representing a sparse banded matrix using the regular CSR format is highly suboptimal, as it has no means of capturing the apparent repetitiveness of the structure. While at first glance the diagonal format might seem an appealing choice for the types of matrices introduced in the previous section, real-life problems produce matrices which are possibly only locally structured, i.e. they contain multiple fully structured sections corresponding to the multiple structured grid regions of the overall heterogeneous domain (Figure \ref{fig:refined_structured_grid}), which need not be aligned in a way to produce a diagonal structure at all. For such matrices the diagonal storage format is highly suboptimal \cite{Bell2011}. Thus a more flexible approach is taken adapting the general purpose CSR format to better suit the characteristics of sparse banded matrices.
+  Evidently, representing a sparse banded matrix using the regular CSR format is suboptimal, as it has no means of capturing the apparent repetitiveness of the structure. While at first glance the diagonal format might seem an appealing choice for the types of matrices introduced in the previous section, real-life problems produce matrices which are possibly only locally structured, i.e. they contain multiple fully structured sections corresponding to the multiple structured grid regions of the overall heterogeneous domain (Figure \ref{fig:refined_structured_grid}), which need not be aligned in a way to produce a diagonal structure at all. For such matrices the diagonal storage format is suboptimal \cite{Bell2011}. Thus a more flexible approach is taken adapting the general purpose CSR format to better suit the characteristics of sparse banded matrices.
 
   This section introduces the data layout and the matrix-vector multiplication scheme of the \emph{threefold compressed sparse row} matrix storage format (C3SR). Its raison d'être is to optimize arithmetic performance of matrix-vector multiplications involving sparse banded matrices by improving data locality through a structurally-aware space-saving storage scheme and by implementing an efficient arithmetic scheme capable of profiting from modern computer architectures' hardware assets.
 
@@ -198,7 +198,7 @@
       \label{fig:c3sr_example_structure}
     \end{figure}
 
-    The matrix's non-zeros' numerical values are represented using two dense arrays: \V, which contains the actual values and \VS, the index-pointer into \V which relates to \V in the same way \JS relates to \J. The storage in \V is subject to an important caveat: if multiple rows exhibit the same pattern and their values match at the same time the values are stored only once within \V. This is a basic requisite for the vectorized matrix-vector multiplication schemes introduced in \ref{subsubsec:vectorized-simd-multiplication-scheme}.
+    The matrix's non-zeros' numerical values are represented using two dense arrays: \V, which contains the actual values and \VS, the index-pointer into \V which relates to \V in the same way \JS relates to \J. The storage in \V is subject to an important property: if multiple rows exhibit the same pattern and their values match at the same time, the values are stored only once within \V. This is a basic requisite for the vectorized matrix-vector multiplication schemes introduced in \ref{subsubsec:vectorized-simd-multiplication-scheme}.
 
     \begin{description}[align = left, labelwidth = 4cm]
       \item [\V - \emph{Values}] \hfill \\
@@ -207,7 +207,7 @@
         Index-pointer to each row's first element within \V. One element per row in matrix.
     \end{description}
 
-    A sixth and final array \RS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but, in contrast to the general CSR format, may not contain the information about how long the segment pertaining to the row within those arrays is. By virtue of the patterns' and values' storage schemes multiple rows' non-zeros' patterns and values may correspond to the very same portion of \J and \V such that the end of that portion cannot be retrieved from the corresponding index-pointer arrays \JS and \VS as could be done for the CSR format by taking the difference of two consecutive index-pointers from \RP.
+    A sixth and final array \RS stores the number of non-zeros in each row of the matrix. This information is required as the index-pointer arrays \JS and \VS point a row's first element within \J and \V but, in contrast to the general CSR format, does not contain the information about how long the segment pertaining to the row within those arrays is. By virtue of the patterns' and values' storage schemes multiple rows' non-zeros' patterns and values may correspond to the very same portion of \J and \V such that the end of that portion cannot be retrieved from the corresponding index-pointer arrays \JS and \VS as could be done for the CSR format by taking the difference of two consecutive index-pointers from \RP.
 
     \begin{description}[align = left, labelwidth = 4cm]
       \item [\RS - \emph{Row sizes}] \hfill \\
@@ -281,7 +281,7 @@
       \label{fig:c3sr-example-best-case}
     \end{figure}
 
-    Note that the structure of a sparse banded matrix derived from a structured grid is exclusively diagonal or locally uniform, i.e. the non-zeros either align into multiple diagonals as in Figure \ref{fig:laplacian-example} or contain blocks of square matrices when solving for higher-dimensional entities. Thus the concept of decomposing a row's non-zeros' column indices into its peg index and patterns is slightly redundant but is retained for the sake of flexibility. Also, low-level optimizations such as the omission of a row's first element in \J, which is always $0$ using the aforementioned storage scheme, are not detailed for the sake of clarity.
+    Note that the structure of a sparse banded matrix derived from a structured grid is exclusively diagonal or locally uniform, i.e. the non-zeros either align into multiple diagonals as in Figure \ref{fig:laplacian-example} or contain blocks of square matrices when solving for multiple coupled entities. Thus the concept of decomposing a row's non-zeros' column indices into its peg index and patterns is slightly redundant but is retained for the sake of flexibility.
 
   \subsection{Matrix-Vector Multiplication Schemes} \label{subsec:matrix-vector-multiplication-schemes}
 
@@ -412,7 +412,7 @@
 
       \paragraph{SIMD Scheme III: Uniform structure}
 
-      The third practically relevant case which arises from solving PDEs on higher-dimensional entities is matrix slices whose structure is uniform, i.e. each row's non-zero elements are located within the same columns in the matrix slice. This leads to the circumstance that the argument vector's element required for the partial sum involving a matrix column is constant for the whole column (see Figure \ref{fig:simd_scheme_uniform}). Thus the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again spread at a fixed stride throughout \V. Note that for sparse banded matrices the values necessarily differ between rows as the matrix would be singular otherwise. Thus, in practice, the matrix-vector multiplication does not collapse to scalar multiplication.
+      The third practically relevant case which arises from solving PDEs on multiple coupled entities is matrix slices whose structure is uniform, i.e. each row's non-zero elements are located within the same columns in the matrix slice. This leads to the circumstance that the argument vector's element required for the partial sum involving a matrix column is constant for the whole column (see Figure \ref{fig:simd_scheme_uniform}). Thus the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again spread at a fixed stride throughout \V. Note that for sparse banded matrices the values necessarily differ between rows as the matrix would be singular otherwise. Thus, in practice, the matrix-vector multiplication does not collapse to scalar multiplication.
 
       \begin{figure}[ht]
         \centering
