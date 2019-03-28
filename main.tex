@@ -304,7 +304,7 @@
         \label{fig:c3sr_matvecmult_basic}
       \end{figure}
 
-      As the C3SR format utilizes additional arrays to store index-pointers the number of memory accesses increases likewise. Assuming a general case of a large sparse matrix devoid of any regularity in its structure whose size exceeds the machine's cache capacity the CSR format's arithmetic performance will be better proportional to the difference in the object's size as the above schemes yield memory bound computations involving few trivial arithmetic operations.
+      As the C3SR format utilizes additional arrays to store index-pointers the number of memory accesses increases likewise. Assuming a general case of a large sparse matrix devoid of any regularity in its structure whose size exceeds the machine's cache capacity the CSR format's arithmetic performance will be better proportional to the difference in the storage size as the above schemes yield memory bound computations involving few trivial arithmetic operations.
 
       On the flipside, as demonstrated in the previous section sparse banded matrices facilitate very compact storage allowing a small segment of memory, corresponding to possibly only a few cache lines, to contain the matrix's complete structural information and, depending on the underlying physical problem, even the numeric values. This can drastically improve the arithmetic performance of the C3SR format despite the more complex memory access scheme as will be shown in the benchmark section.
 
@@ -318,7 +318,7 @@
 
       As each diagonal's summand accesses the argument vector's elements in consecutive fashion, for example, $x_s, x_{s+1}, \ldots, x_{s + k}$ for the first diagonal, the access to the argument vector's elements can be vectorized. The other summand's constituents, the diagonal's elements, are stored within \V at a fixed stride which is equal to the number of diagonals. This is due to the fact that the matrix slice's non-zero elements are stored row-by-row while each row has the same number of elements. Thus, for the general case when the rows' values don't match, $a_{r, s}$ is located as many elements before $a_{r+1, s+1}$ within \V as there are diagonals.
 
-      In SIMD terms a stride-gather and a load are required for the diagonal's elements and the argument vector, respectively. The two vector registers are then multiplied and the result is then added onto the next product pertaining to the subsequent diagonal. After the final vectorized addition the result is written into the output buffer using a vectorized load.
+      In SIMD terms a stride-gather and a load are required for the diagonal's elements and the argument vector, respectively. The two vector registers are then multiplied and the result is then added onto the next product pertaining to the subsequent diagonal. After the final vectorized addition the result is written into the output buffer using a vectorized store.
 
       \begin{figure}[ht]
         \centering
@@ -368,7 +368,7 @@
 
       \paragraph{SIMD Scheme II: Diagonal structure and identical values}
 
-      For the case of a matrix slice whose structure is diagonal and whose rows share the same values, which equates to all values within a diagonal being identical, e.g. $a_{r,s} = a_{r+1, s+1} = \ldots$ for the first diagonal, the previous multiplication scheme is simplified in that the argument vector's values contained in the vector register are simply scaled by the diagonal's value instead of being subjected to a vectorized multiplication (Figure \ref{fig:simd_scheme_diag_collated}).
+      For the case of a matrix slice whose structure is diagonal and whose rows share the same values, which equates to all values within a diagonal being identical, e.g. $a_{r,s} = a_{r+1, s+1} = \ldots$ for the first diagonal, the previous multiplication scheme is simplified in that the argument vector's values contained in the vector register are simply scaled by the diagonal's value instead of being subjected to a vectorized multiplication (Figure \ref{fig:simd_scheme_diag_collated}). Thus, in contrast to the previous multiplication scheme no SIMD gather is required to compute a matrix-vector product resulting in faster execution times.
 
       \begin{figure}[ht]
         \centering
@@ -412,7 +412,7 @@
 
       \paragraph{SIMD Scheme III: Uniform structure}
 
-      The third practically relevant case which arises from solving PDEs on multiple coupled entities is matrix slices whose structure is uniform, i.e. each row's non-zero elements are located within the same columns in the matrix slice. This leads to the circumstance that the argument vector's element required for the partial sum involving a matrix column is constant for the whole column (see Figure \ref{fig:simd_scheme_uniform}). Thus the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again spread at a fixed stride throughout \V. Note that for sparse banded matrices the values necessarily differ between rows as the matrix would be singular otherwise. Thus, in practice, the matrix-vector multiplication does not collapse to scalar multiplication.
+      The third practically relevant case which arises from solving PDEs on multiple coupled entities is matrix slices whose structure is uniform, i.e. each row's non-zero elements are located within the same columns in the matrix slice. This leads to the circumstance that the argument vector's element required for the partial sum involving a matrix column is constant for the whole column (see Figure \ref{fig:simd_scheme_uniform}). Thus the argument vector's elements serve as scaling constants for the vector register containing the matrix's elements, which are again spread at a fixed stride throughout \V. Note that for sparse banded matrices derived from structured grids the values usually differ between rows as the matrix would be singular otherwise. Thus, in practice, the matrix-vector multiplication does not collapse to scalar multiplication.
 
       \begin{figure}[ht]
         \centering
@@ -470,14 +470,14 @@
 
     Note that $n_d = 0 \Leftrightarrow \partial_d W(\vec{r}) \equiv 0$, introducing a periodicity in the corresponding dimension $d$. This feature is utilized to control the periodicity in the matrix's values.
 
-    For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second, larger matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil operation. The matrices' structures are their grid's equivalent to the example shown in Figure \ref{fig:laplacian-example}.
+    For the purpose of this work two different sets of parameters are utilized generating two different matrices: A smaller matrix generated from a $100 \times 100 \times 100$ grid with the periodicities $n_x = n_y = n_z = 0$ and a second matrix based on the same grid but different periodicities $n_x = 1.1; n_y = 1.2; n_z = 1.3$. Both matrices are generated from a symmetric 7p-stencil operation. The matrices' structures are their grid's equivalent to the example shown in Figure \ref{fig:laplacian-example}.
 
-    The first, smaller matrix's values are identical for all rows whose pattern is the same such that \V and \J contain the same number of elements. The second, larger matrix's rows' values are all unique and thus \V contains approximately $7 \cdot 100^3$ elements (Figure \ref{fig:matrix_stats}).
+    The first matrix's values are identical for all rows whose pattern is the same such that \V and \J contain the same small number of elements. The second matrix's rows' values are all unique and thus \V contains approximately $7 \cdot 100^3$ elements (Figure \ref{fig:matrix_stats}).
 
     \begin{figure}[ht]
       \centering
       \begin{tabular}{ l | c c }
-          Array & Small Matrix & Large Matrix        \\
+          Array & First Matrix & Second Matrix       \\
         \hline                                       \\
         \V         & $135$          & $6940000$      \\
         \VS        & $1000000$      & $1000000$      \\
@@ -493,7 +493,7 @@
       \label{fig:matrix_stats}
     \end{figure}
 
-    Note that the two matrices share the same structure and thus their only difference is found in \V and \VS. Concerning the vectorized matrix-vector multiplication scheme the small matrix primarily utilizes the scheme II (Figure \ref{fig:simd_scheme_diag_collated}) while the larger matrix mainly relies on scheme I (Figure \ref{fig:simd_scheme_diag}). The matrices are generated using the asc::matrixgen C++ library\footnote{https://mp-force.ziti.uni-heidelberg.de/asc/AscMatrixGen}.
+    Note that the two matrices share the same structure and thus their only difference is found in \V and \VS. Concerning the vectorized matrix-vector multiplication scheme the first matrix primarily utilizes scheme II (Figure \ref{fig:simd_scheme_diag_collated}) while the second matrix mainly relies on scheme I (Figure \ref{fig:simd_scheme_diag}). The matrices are generated using the asc::matrixgen C++ library\footnote{https://mp-force.ziti.uni-heidelberg.de/asc/AscMatrixGen}.
 
   \subsection{Performance of CSR-like Matrix-Vector Multiplication}
 
@@ -506,7 +506,7 @@
       \label{fig:baseline_arithmetic_performance}
     \end{figure}
 
-    By design of the C3SR format, it outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in the size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the smaller matrix entailing speed-up factors of approximately 2, 13, and 3.
+    By design of the C3SR format, it outperforms the CSR format in the order of magnitude of around $50\%$ irrespective of the machine. This is due to the reduction in the size of the representation of the matrices and the consequent improvement in data locality as the C3SR format's arithmetic is slightly more complex as discussed in \ref{subsubsec:basic-csr-like-multiplication-scheme}. Accordingly, the performance improvement is more pronounced for the first matrix, whose storage size is smaller, entailing speed-up factors of approximately 2, 13, and 3.
 
     Despite the clear performance benefits the above results have to be qualified further as the implementation of the C3SR format\footnote{https://mp-force.ziti.uni-heidelberg.de/shuell/c3srmatrix} uses a NUMA-aware memory allocation scheme for its data arrays, correctly distributing them across physical memory, suitable for the multi-socket systems utilized for the benchmarks. Conversely, the Eigen C++ library, a general purpose linear algebra, and numerics framework, does not tailor its data fields' memory layout in such a way that might lead to performance penalties due to a data distribution inadequate for the access patterns of the multi-threaded arithmetic. Additionally, Eigen internally uses the multi-threading framework OpenMP \cite{openmp:website} which entails a dynamic overhead not present in the implementation of the C3SR format.
 
@@ -521,22 +521,22 @@
       \label{fig:arithmetic-performance}
     \end{figure}
 
-    Sparse matrix-vector multiplication is a memory-bound computation so that the efficacy of a vectorized arithmetic implementation depends very strongly on the amount of data that is required to be read from memory and whether the dynamic overhead involved in determining the applicable SIMD scheme is compensated by a speed-up in arithmetic. This fact is reflected in the measurements as for the large matrix the SIMD implementation is generally slower than the baseline implementation. Only for the small matrix a significant speed-up can be observed on every machine. However, this might be partly due to the fact that the large matrix's SIMD multiplication scheme is less performant as it involves stridden loads from memory which might equate to regular gather operations on the hardware used for this benchmark (see \ref{subsubsec:vectorized-simd-multiplication-scheme}).
+    Sparse matrix-vector multiplication is a memory-bound computation so that the efficacy of a vectorized arithmetic implementation depends very strongly on the amount of data that is required to be read from memory and whether the dynamic overhead involved in determining the applicable SIMD scheme is compensated by a speed-up in arithmetic. This fact is reflected in the measurements as for the second matrix the SIMD implementation is generally slower than the baseline implementation. Only for the first matrix a significant speed-up can be observed on every machine. However, this might be partly due to the fact that the second matrix's SIMD multiplication scheme is less performant as it involves strided loads from memory which might equate to regular gather operations on the hardware used for this benchmark (see \ref{subsubsec:vectorized-simd-multiplication-scheme}).
 
   \subsection{Further Considerations}
 
-    By evidence of the performance benchmarks presented in the previous section the basis for the performance gain in the arithmetic of the C3SR format with respect to the CSR format for sparse banded matrices is the reduction of the matrix's total object size in memory leading to big improvements in data locality during matrix-vector multiplication.
+    By evidence of the performance benchmarks presented in the previous section the basis for the performance gain in the arithmetic of the C3SR format with respect to the CSR format for sparse banded matrices is the reduction of the matrix's total storage size in memory leading to big improvements in data locality during matrix-vector multiplication.
 
-    The C3SR format's storage scheme is tailored to minimize the matrix object's size in memory. However, depending on how the matrix object is created in memory, adhering to the storage scheme to its full extent may not be optimal as it might limit parallelism during object construction. The data arrays' contents are strongly coupled such that the workload cannot be trivially spread across multiple threads. Instead, it might be advisable to partition the matrix into equally sized slices whose independent C3SR objects can be created in parallel. Finally, these distinct C3SR objects corresponding to the matrix slices are then transformed into a singular object by concatenating the data arrays requiring that the index-pointer arrays are offset by the number of rows preceding their first matrix row.
+    The C3SR format's storage scheme is tailored to minimize the matrix' storage size in memory. However, depending on how the matrix object is created in memory, adhering to the storage scheme to its full extent may not be optimal as it might limit parallelism during object construction. The data arrays' contents are strongly coupled such that the workload cannot be trivially spread across multiple threads. Instead, it might be advisable to partition the matrix into equally sized slices whose independent C3SR objects can be created in parallel. Finally, these distinct C3SR objects corresponding to the matrix slices are then transformed into a singular object by concatenating the data arrays requiring that the index-pointer arrays are offset by the number of rows preceding their first matrix row.
 
-    In order to establish an estimate for an apt partition size Figure \ref{fig:structured_grid_matrix_heap_size} displays the total object size depending on the partition size for the two matrices used for the performance benchmarks. It is evident that there exists a point of diminishing returns past whose partition size there is no significant gain in object size reduction. This point is reached when the sizes of \V and \J, the two arrays responsible for the reduction in object size for the C3SR format, fall significantly below the fixed sizes of the remaining arrays, which constitute a minimum to the object size.
+    In order to establish an estimate for an apt partition size Figure \ref{fig:structured_grid_matrix_heap_size} displays the total storage size depending on the partition size for the two matrices used for the performance benchmarks. It is evident that there exists a point of diminishing returns past whose partition size there is no significant gain in storage size reduction. This point is reached when the sizes of \V and \J, the two arrays responsible for the reduction in storage size for the C3SR format, fall significantly below the fixed sizes of the remaining arrays, which constitute a minimum to the storage size.
 
-    Thus, the performance benefits of the C3SR format may be kept even when trading larger object sizes in favor of the parallelizability of the application.
+    Thus, the performance benefits of the C3SR format may be kept even when trading larger storage sizes in favor of the parallelizability of the application.
 
     \begin{figure}[ht]
       \centering
       \includegraphics[width=0.9\textwidth]{assets/structured_grid_matrix_heap_size}
-      \caption[C3SR matrix object size depending on partition size]{\textbf{C3SR matrix object size depending on partition size.} Numeric values are stored using double precision floating-point numbers while all other arrays utilize 32 bit integers. A point of diminishing returns is reached at a partition size of around 1000, past which the object's total size in memory does not shrink significantly. Thus, creating C3SR objects using partition sizes of 1000 and larger may yield a similar performance while speeding up the creation of the object. For comparison the corresponding CSR format's object size is provided.}
+      \caption[C3SR matrix storage size depending on partition size]{\textbf{C3SR matrix storage size depending on partition size.} Numeric values are stored using double precision floating-point numbers while all other arrays utilize 32 bit integers. A point of diminishing returns is reached at a partition size of around 1000, past which the storage size in memory does not shrink significantly. Thus, creating C3SR objects using partition sizes of 1000 and larger may yield a similar performance while speeding up the creation of the object. For comparison the corresponding CSR format's storage size is provided.}
       \label{fig:structured_grid_matrix_heap_size}
     \end{figure}
 
@@ -544,7 +544,7 @@
 
   This report introduces the threefold compressed sparse row matrix storage format (C3SR) which has been designed to adapt the CSR format to improve the performance of matrix-vector multiplication for sparse banded matrices derived from structured grids. Significant performance benefits have been demonstrated for two different sparse banded matrices based on a $100 \times 100 \times 100$ grid utilizing the basic CSR-like matrix-vector multiplication scheme of the C3SR format.
 
-  A vectorized arithmetic scheme could only be shown to provide performance improvements for the matrix whose object in memory is significantly smaller implying that the matrix-vector multiplication is bound by the system's memory bandwidth. Thus, for the machines utilized for this work, the applicability of vectorization for the arithmetic depends strongly on the sparse banded matrix in question. For some systems, it showed worse performance than the baseline CSR-like implementation.
+  A vectorized arithmetic scheme could only be shown to provide performance improvements for the matrix whose storage size in memory is significantly smaller implying that the matrix-vector multiplication is bound by the system's memory bandwidth. Thus, for the machines utilized for this work, the applicability of vectorization for the arithmetic depends strongly on the sparse banded matrix in question. For some systems, it showed worse performance than the baseline CSR-like implementation.
 
   \subsection{Future Work}
 
