@@ -502,7 +502,7 @@
     \begin{figure}[!ht]
       \centering
       \includegraphics[width=0.9\textwidth]{assets/eigen_vs_c3sr_baseline}
-      \caption[Performance comparison of the CSR format against the C3SR format on sparse banded matrices.]{\textbf{Performance comparison of the CSR format against the C3SR format on sparse banded matrices.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. As the CSR format's representation of the different matrices is identical except for differing numeric values the arithmetic performance is the same save for statistical variance.}
+      \caption[Performance comparison of the CSR format against the C3SR format on sparse banded matrices.]{\textbf{Performance comparison of the CSR format against the C3SR format on sparse banded matrices.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. As the CSR format's representation of the different matrices is identical except for differing numeric values the arithmetic performance is the same save for statistical variance. The triangular symbols denote the theoretical limits as determined by the quotient of the total amount of data involved in a matrix-vector multiplication and the system's theoretical memory bandwidth.}
       \label{fig:baseline_arithmetic_performance}
     \end{figure}
 
