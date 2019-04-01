@@ -1,4 +1,4 @@
-\documentclass{article}
+\documentclass{report}
 
 % Packages
 %\usepackage[utf8]{inputenc} % Required for German umlauts
@@ -26,13 +26,18 @@
 \fancyhf{}
 \fancyhead[C]{\leftmark}
 \fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrulewidth}{0.0pt}
 
 %
 \usepackage[hidelinks]{hyperref}
 %
 \usepackage{enumitem} % description alignment
+% Chapter title formattting
+\usepackage{titlesec}
+\titleformat{\chapter}{\huge\bfseries}{\thechapter}{1em}{}
 
+\usepackage{tocbibind}
+\settocbibname{References}
 %
 % Tikz Setup
 %
@@ -72,12 +77,11 @@
 \newpage
 \listoffigures
 
-\newpage
-\section{Introduction}
+\chapter{Introduction}
 
   This section introduces two notions fundamental to the ideas developed in this report, the general purpose \emph{compressed sparse row} matrix storage format (CSR) and, secondly, \emph{sparse banded matrices} as well as their usage in the natural sciences and their particular structure.
 
-  \subsection{Compressed Sparse Row Matrix Storage Format}
+  \section{Compressed Sparse Row Matrix Storage Format}
 
     The compressed sparse row (CSR) format is a widely used storage format for sparse matrices. Unlike other popular sparse matrix storage formats such as the diagonal storage format (DIA), the CSR format is not tailored to any special type of matrix but is a general purpose storage format that makes no assumptions about the matrix's shape or its distribution of non-zeros. The CSR format can be considered an improvement to the naive coordinate format (COO) in that each non-zero's row index is no longer explicitly stored \cite{Bell2011}.
 
@@ -115,7 +119,7 @@
 
     The CSR format serves as a starting point for the C3SR sparse matrix storage format for sparse banded matrices which is the focal point of this work.
 
-  \subsection{Sparse Banded Matrices Derived from Structured Grids} \label{subsec:structured-grid-matrices}
+  \section{Sparse Banded Matrices Derived from Structured Grids} \label{subsec:structured-grid-matrices}
 
     Structured grid computations are ubiquitously used for physical simulations in scientific fields such as, for example, computational fluid dynamics, electrodynamics and astrophysics. Generally, a system of partial differential equations is solved by discretization and linearization of the problem which involves generating a grid corresponding to the physical domain in question. A structured grid refers to a mesh whose nodes are uniquely identified by a tuple of coordinates and v.v., such as $(i, j, k)$ for three dimensions (Figure \ref{fig:structured_grid_example}). Such meshes are sometimes referred to as \emph{logically rectangular}.
 
@@ -158,14 +162,13 @@
 
     The sparse matrices relevant to this work are any sparse matrices that contain one or more sets of rows whose non-zero's column indices are identical save for a fixed offset. Sparse banded matrices arising from the procedure mentioned above have one such set to which the overwhelming majority of rows belong corresponding to all inner grid nodes (such as in the example in Figure \ref{fig:laplacian-example}). However, all of the ideas presented hereinafter may be applied to any sparse matrix whose structure exhibits any degree of repetitiveness.
 
-\newpage
-\section{Threefold Compressed Sparse Row Matrix Storage Format}
+\chapter{Threefold Compressed Sparse Row Matrix Storage Format}
 
   Evidently, representing a sparse banded matrix using the regular CSR format is suboptimal, as it has no means of capturing the apparent repetitiveness of the structure. While at first glance the diagonal format might seem an appealing choice for the types of matrices introduced in the previous section, real-life problems produce matrices which are possibly only locally structured, i.e. they contain multiple fully structured sections corresponding to the multiple structured grid regions of the overall heterogeneous domain (Figure \ref{fig:refined_structured_grid}), which need not be aligned in a way to produce a diagonal structure at all. For such matrices the diagonal storage format is suboptimal \cite{Bell2011}. Thus a more flexible approach is taken adapting the general purpose CSR format to better suit the characteristics of sparse banded matrices.
 
   This section introduces the data layout and the matrix-vector multiplication scheme of the \emph{threefold compressed sparse row} matrix storage format (C3SR). Its raison d'être is to optimize arithmetic performance of matrix-vector multiplications involving sparse banded matrices by improving data locality through a structurally-aware space-saving storage scheme and by implementing an efficient arithmetic scheme capable of profiting from modern computer architectures' hardware assets.
 
-  \subsection{Data Layout and Storage Scheme}
+  \section{Data Layout and Storage Scheme}
 
     It is crucial to observe that, in the most general case, a regularity inherent to a sparse banded matrix's non-zeros' column indices is not shared by the non-zeros' numerical values. While the non-zeros of two or more rows may share the same column indices, save for a possible offset, their corresponding values need not to be similar to each other at all. To prevent that a lack of common regularity impedes optimizing the storage of one or the other it is thus necessary to decouple the representation of a row's non-zeros' column index positions from the representation of their numerical values. The C3SR format accounts for this circumstance and maintains separate data structures for the non-zeros' column indices and their values. Hence the nomenclature of the C3SR format, as it is based on the idea of the CSR format and adds another two potential layers of compression: one for the column indices and one for the values.
 
@@ -295,11 +298,11 @@
 
     Note that the structure of a sparse banded matrix derived from a structured grid is exclusively diagonal or locally uniform, i.e. the non-zeros either align into multiple diagonals as in Figure \ref{fig:laplacian-example} or contain blocks of square matrices when solving for multiple coupled entities. Thus the concept of decomposing a row's non-zeros' column indices into its peg index and patterns is slightly redundant but is retained for the sake of flexibility.
 
-  \subsection{Matrix-Vector Multiplication Schemes} \label{subsec:matrix-vector-multiplication-schemes}
+  \section{Matrix-Vector Multiplication Schemes} \label{subsec:matrix-vector-multiplication-schemes}
 
     Aside from the basic CSR-like matrix-vector multiplication scheme, the C3SR format's storage scheme allows for a vectorized arithmetic scheme for sparse banded matrices. This section details the different matrix-vector multiplication schemes whose performance is then gauged in the subsequent section.
 
-    \subsubsection{Basic CSR-like Multiplication Scheme} \label{subsubsec:basic-csr-like-multiplication-scheme}
+    \subsection{Basic CSR-like Multiplication Scheme} \label{subsubsec:basic-csr-like-multiplication-scheme}
 
       Algorithmically, the basic row-by-column matrix-vector multiplication scheme of the C3SR format is similar to that of the CSR format. Differences arise only in the C3SR's additional offset $\JP[k]$ which is applied to each relative column index prior to accessing the argument vector $x$ as shown in Figure \ref{fig:c3sr_matvecmult_basic}.
 
@@ -320,7 +323,7 @@
 
       On the flipside, as demonstrated in the previous section sparse banded matrices facilitate very compact storage allowing a small segment of memory, corresponding to possibly only a few cache lines, to contain the matrix's complete structural information and, depending on the underlying physical problem, even the numeric values. This can drastically improve the arithmetic performance of the C3SR format despite the more complex memory access scheme as will be shown in the benchmark section.
 
-    \subsubsection{Vectorized SIMD Multiplication Scheme} \label{subsubsec:vectorized-simd-multiplication-scheme}
+    \subsection{Vectorized SIMD Multiplication Scheme} \label{subsubsec:vectorized-simd-multiplication-scheme}
 
       In addition to the performance gain utilizing the basic CSR-like multiplication scheme due to better data locality, the data layout of a structured matrix in the C3SR format allows for the matrix-vector multiplication to be implemented utilizing SIMD parallelism. The matrix's data is laid out in memory in such a way that the matrix-vector multiplication may be performed for multiple rows at a time using vectorization. Depending on the composition of the matrix corresponding to the types of problems mentioned in the introduction (see \ref{subsec:structured-grid-matrices}) three different but very similar multiplication schemes can be devised.
 
@@ -468,14 +471,13 @@
 
       All of the arithmetic schemes described above can be extended to vector registers of arbitrary length and are thus theoretically able to scale with additional hardware capabilities. Of course, in order to utilize the above-mentioned computation schemes, a preliminary analysis of the matrix's structure has to be performed in order to determine the segments which can facilitate vectorized arithmetic. Due to the storage scheme of the C3SR format, this can be done very cheaply since if a matrix segment has a diagonal or uniform structure all of the rows exhibit the same pattern and hence the same values in \JS. For uniformly structured segments all peg indices are identical, while for a diagonally structured segment the peg indices are consecutive integers. Additionally, if the rows' values are identical for the case of a diagonal structure the rows' index-pointers \VS are also identical.
 
-\newpage
-\section{Performance Benchmarks}
+\chapter{Performance Benchmarks}
 
   The matrix-vector multiplication performance of the C3SR format is measured in its CSR-like and vectorized implementations (see \ref{subsec:matrix-vector-multiplication-schemes}). Firstly, baseline performance is established by comparing the matrix-vector multiplication performance of the C3SR format's CSR-like multiplication scheme introduced in \ref{subsubsec:basic-csr-like-multiplication-scheme} against the CSR format's performance on different sparse banded matrices derived from structured grids and on three different machines. Secondly, the C3SR format's baseline performance is compared against its vectorized counterpart introduced in \ref{subsubsec:vectorized-simd-multiplication-scheme}.
 
   The following subsection introduces the sparse banded matrices used for the performance benchmarks and their method of acquisition. Subsequently, the results of the performance benchmarks are discussed. Information on the machines used for the benchmarks can be found at the ASC infrastructure wiki\footnote{https://mp-force.ziti.uni-heidelberg.de/kmbeutel/personal-wiki/wikis/ASC-infrastructure} (the KNL was configured to 50\% hybrid mode). All benchmarks were run multi-threaded utilizing the machines' full hardware capabilities.
 
-  \subsection{Generation of Sparse Banded Matrices as Test Matrices}
+  \section{Generation of Sparse Banded Matrices as Test Matrices}
 
     For the purpose of gauging the arithmetic performance, test matrices are created. These matrices resemble the structure of the sparse banded matrices introduced above and are created by iterating through a 3D grid of fixed integral dimensions X, Y, Z and applying a given stencil operation which encodes the desired adjacency relationship of the grid. Nodes requested by the stencil but missing from the grid, i.e. nodes on the grid's outer borders, are omitted, i.e. their corresponding entries in the adjacency matrix carry a zero corresponding to Dirichlet-type boundary conditions.
 
@@ -508,7 +510,7 @@
 
     Note that the two matrices share the same structure and thus their only difference is found in \V and \VS. Concerning the vectorized matrix-vector multiplication scheme the first matrix primarily utilizes scheme II (Figure \ref{fig:simd_scheme_diag_collated}) while the second matrix mainly relies on scheme I (Figure \ref{fig:simd_scheme_diag}). The matrices are generated using the asc::matrixgen C++ library\footnote{https://mp-force.ziti.uni-heidelberg.de/asc/AscMatrixGen}.
 
-  \subsection{Performance of CSR-like Matrix-Vector Multiplication}
+  \section{Performance of CSR-like Matrix-Vector Multiplication}
 
     The C3SR format's CSR-like matrix-vector multiplication scheme (referred to as \emph{baseline implementation} hereinafter; see \ref{subsubsec:basic-csr-like-multiplication-scheme}) is compared against its CSR format's pendant using the Eigen C++ library \cite{eigen:website} on three different machines using the sparse banded matrices introduced in the previous section. The results are displayed in Figure \ref{fig:baseline_arithmetic_performance}.
 
@@ -523,7 +525,7 @@
 
     Despite the clear performance benefits the above results have to be qualified further as the implementation of the C3SR format\footnote{https://mp-force.ziti.uni-heidelberg.de/shuell/c3srmatrix} uses a NUMA-aware memory allocation scheme for its data arrays, correctly distributing them across physical memory, suitable for the multi-socket systems utilized for the benchmarks. Conversely, the Eigen C++ library, a general purpose linear algebra and numerics framework, does not tailor its data fields' memory layout in such a way that might lead to performance penalties due to a data distribution inadequate for the access patterns of the multi-threaded arithmetic. Additionally, Eigen internally uses the multi-threading framework OpenMP \cite{openmp:website} which entails a dynamic overhead not present in the implementation of the C3SR format.
 
-  \subsection{Performance of SIMD Matrix-Vector Multiplication}
+  \section{Performance of SIMD Matrix-Vector Multiplication}
 
     The C3SR format's vectorized multiplication scheme's performance is measured by comparing it against the baseline performance. The implementation of the vectorized multiplication scheme utilizes the explicit SIMD vectorization library UME::SIMD \cite{umesimd2017}. The results are displayed in Figure \ref{fig:arithmetic-performance}.
 
@@ -536,7 +538,7 @@
 
     Sparse matrix-vector multiplication is a memory-bound computation so that the efficacy of a vectorized arithmetic implementation depends very strongly on the amount of data that is required to be read from memory and whether the dynamic overhead involved in determining the applicable SIMD scheme is compensated by a speed-up in arithmetic. This fact is reflected in the measurements as for the second matrix the SIMD implementation is generally slower than the baseline implementation. Only for the first matrix a significant speed-up can be observed on every machine. However, this might be partly due to the fact that the second matrix's SIMD multiplication scheme is less performant as it involves strided loads from memory which might equate to regular gather operations on the hardware used for this benchmark (see \ref{subsubsec:vectorized-simd-multiplication-scheme}).
 
-  \subsection{Further Considerations}
+  \section{Further Considerations}
 
     By evidence of the performance benchmarks presented in the previous section the basis for the performance gain in the arithmetic of the C3SR format with respect to the CSR format for sparse banded matrices is the reduction of the matrix's total storage size in memory leading to big improvements in data locality during matrix-vector multiplication.
 
@@ -553,18 +555,22 @@
       \label{fig:structured_grid_matrix_heap_size}
     \end{figure}
 
-\newpage
-\section{Conclusion}
+\begingroup
+\let\clearpage\relax
+\chapter*{Conclusion}
+\endgroup
+\markboth{Conclusion}{Conclusion}
+\addcontentsline{toc}{chapter}{Conclusion}
 
   This report introduces the threefold compressed sparse row matrix storage format (C3SR) which has been designed to adapt the CSR format to improve the performance of matrix-vector multiplication for sparse banded matrices derived from structured grids. Significant performance benefits have been demonstrated for two different sparse banded matrices based on a $100 \times 100 \times 100$ grid utilizing the basic CSR-like matrix-vector multiplication scheme of the C3SR format.
 
   A vectorized arithmetic scheme could only be shown to provide performance improvements for the matrix whose storage size in memory is significantly smaller implying that the matrix-vector multiplication is bound by the system's memory bandwidth. Thus, for the machines utilized for this work, the applicability of vectorization for the arithmetic depends strongly on the sparse banded matrix in question. For some systems, it showed worse performance than the baseline CSR-like implementation.
 
-  \subsection{Future Work}
+  \section*{Future Work}
 
     In order to gauge arithmetic performance, this project uses few synthetic matrices which, albeit being realistic examples, cover only very little of the total spectrum of sparse banded matrices that occur in real-life applications. Especially heterogeneous domains as discussed in section \ref{subsec:structured-grid-matrices} yield sparse matrices which are only partially structured. These scenarios have to be investigated separately in terms of arithmetic performance.
 
-\newpage
 \printbibliography
+\addcontentsline{toc}{chapter}{\bibname}
 
 \end{document}
