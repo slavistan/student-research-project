@@ -14,7 +14,7 @@
 \geometry{
   paper=a4paper, % Change to letterpaper for US letter
   inner=2.5cm, % Inner margin
-  outer=3.8cm, % Outer margin
+  outer=2.5cm, % Outer margin
   bindingoffset=.5cm, % Binding offset
   top=1.5cm, % Top margin
   bottom=2.5cm, % Bottom margin
@@ -30,12 +30,15 @@
 \renewcommand{\headrulewidth}{0.0pt}
 
 %
-\usepackage[hidelinks]{hyperref}
+\usepackage[hidelinks,linktocpage=true,colorlinks=true,citecolor=red]{hyperref}
 %
 \usepackage{enumitem} % description alignment
-% Chapter title formattting
-\usepackage{titlesec}
-\titleformat{\chapter}{\huge\bfseries}{\thechapter}{1em}{}
+
+\usepackage{titlesec, blindtext, color}
+\definecolor{gray75}{gray}{0.75}
+\newcommand{\hsp}{\hspace{20pt}}
+\titleformat{\chapter}[hang]{\Huge\bfseries}{\thechapter\hsp\textcolor{gray75}{\rule[-4.0mm]{0.50mm}{12.00mm}}\hsp}{0pt}{\Huge\bfseries}
+\titlespacing*{\chapter}{0pt}{-40pt}{40pt}
 
 \usepackage{tocbibind}
 \settocbibname{References}
@@ -68,7 +71,7 @@
 \title{Student Research Project Report}
 \date{}
 \begin{document}
-
+\pagenumbering{roman}
 \begin{minipage}[h]{\textwidth}
 \maketitle
 \vspace{0.5cm}
@@ -96,6 +99,7 @@
 \listoffigures
 
 \chapter{Introduction}
+\pagenumbering{arabic}
 
   This section introduces two notions fundamental to the ideas developed in this report, the general purpose \emph{compressed sparse row} matrix storage format (CSR) and, secondly, \emph{sparse banded matrices} as well as their usage in the natural sciences and their particular structure.
 
@@ -491,7 +495,7 @@
 
 \chapter{Performance Benchmarks}
 
-  The matrix-vector multiplication performance of the C3SR format is measured in its CSR-like and vectorized implementations (see \ref{subsec:matrix-vector-multiplication-schemes}). Firstly, baseline performance is established by comparing the matrix-vector multiplication performance of the C3SR format's CSR-like multiplication scheme introduced in \ref{subsubsec:basic-csr-like-multiplication-scheme} against the CSR format's performance on different sparse banded matrices derived from structured grids and on three different machines. Secondly, the C3SR format's baseline performance is compared against its vectorized counterpart introduced in \ref{subsubsec:vectorized-simd-multiplication-scheme}.
+  The matrix-vector multiplication performance of the C3SR format is measured in its CSR-like and vectorized implementations (see \ref{subsec:matrix-vector-multiplication-schemes}). Firstly, a baseline performance is established by comparing the matrix-vector multiplication performance of the C3SR format's CSR-like multiplication scheme introduced in \ref{subsubsec:basic-csr-like-multiplication-scheme} against the CSR format's performance on different sparse banded matrices derived from structured grids and on three different machines. Secondly, the C3SR format's baseline performance is compared against its vectorized counterpart introduced in \ref{subsubsec:vectorized-simd-multiplication-scheme}.
 
   The following subsection introduces the sparse banded matrices used for the performance benchmarks and their method of acquisition. Subsequently, the results of the performance benchmarks are discussed. Information on the machines used for the benchmarks can be found at the ASC infrastructure wiki\footnote{https://mp-force.ziti.uni-heidelberg.de/kmbeutel/personal-wiki/wikis/ASC-infrastructure} (the KNL was configured to 50\% hybrid mode). All benchmarks were run multi-threaded utilizing the machines' full hardware capabilities.
 
@@ -562,21 +566,18 @@
 
     The C3SR format's storage scheme is tailored to minimize the matrix' storage size in memory. However, depending on how the matrix object is created in memory, adhering to the storage scheme to its full extent may not be optimal as it might limit parallelism during object construction. The data arrays' contents are strongly coupled such that the workload cannot be trivially spread across multiple threads. Instead, it might be advisable to partition the matrix into equally sized slices whose independent C3SR objects can be created in parallel. Finally, these distinct C3SR objects corresponding to the matrix slices are then transformed into a singular object by concatenating the data arrays requiring that the index-pointer arrays are offset by the number of rows preceding their first matrix row.
 
+    \begin{figure}[ht]
+      \centering
+      \includegraphics[width=0.9\textwidth]{assets/structured_grid_matrix_heap_size}
+      \caption[C3SR matrix storage size depending on partition size.]{\textbf{C3SR matrix storage size depending on partition size.} Numeric values are stored using double precision floating-point numbers while all other arrays utilize 32 bit integers. A point of diminishing returns is reached at a partition size of around 1000, past which the storage size in memory does not shrink significantly. Thus, creating C3SR objects using partition sizes of 1000 and larger may yield a similar performance while speeding up the creation of the object. For comparison the corresponding CSR format's storage size is provided.}
+      \label{fig:structured_grid_matrix_heap_size}
+    \end{figure}
+
     In order to establish an estimate for an apt partition size Figure \ref{fig:structured_grid_matrix_heap_size} displays the total storage size depending on the partition size for the two matrices used for the performance benchmarks. It is evident that there exists a point of diminishing returns past whose partition size there is no significant gain in storage size reduction. This point is reached when the sizes of \V and \J, the two arrays responsible for the reduction in storage size for the C3SR format, fall significantly below the fixed sizes of the remaining arrays, which constitute a minimum to the storage size.
 
     Thus, the performance benefits of the C3SR format may be kept even when trading larger storage sizes in favor of the parallelizability of the application.
 
-    \begin{figure}[ht]
-      \centering
-      \includegraphics[width=0.9\textwidth]{assets/structured_grid_matrix_heap_size}
-      \caption[C3SR matrix storage size depending on partition size]{\textbf{C3SR matrix storage size depending on partition size.} Numeric values are stored using double precision floating-point numbers while all other arrays utilize 32 bit integers. A point of diminishing returns is reached at a partition size of around 1000, past which the storage size in memory does not shrink significantly. Thus, creating C3SR objects using partition sizes of 1000 and larger may yield a similar performance while speeding up the creation of the object. For comparison the corresponding CSR format's storage size is provided.}
-      \label{fig:structured_grid_matrix_heap_size}
-    \end{figure}
-
-\begingroup
-\let\clearpage\relax
 \chapter*{Conclusion}
-\endgroup
 \markboth{Conclusion}{Conclusion}
 \addcontentsline{toc}{chapter}{Conclusion}
 
