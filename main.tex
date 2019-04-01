@@ -38,7 +38,7 @@
 \definecolor{gray75}{gray}{0.75}
 \newcommand{\hsp}{\hspace{20pt}}
 \titleformat{\chapter}[hang]{\Huge\bfseries}{\thechapter\hsp\textcolor{gray75}{\rule[-4.0mm]{0.50mm}{12.00mm}}\hsp}{0pt}{\Huge\bfseries}
-\titlespacing*{\chapter}{0pt}{-40pt}{40pt}
+\titlespacing*{\chapter}{0pt}{-20pt}{40pt}
 
 \usepackage{tocbibind}
 \settocbibname{References}
@@ -88,7 +88,7 @@
 \end{minipage}
 \vspace{0.5cm}
 \begin{abstract}
-  Matrix-vector multiplication with sparse banded matrices derived from a structured grid is ubiquitously used for physical simulations in many scientific fields. Implementing the arithmetic using a general purpose sparse matrix format, such as the widely used CSR format, however, yields suboptimal results as the inherent structure of such matrices cannot be exploited by these formats in order to improve the arithmetic performance. This report presents a new sparse matrix storage format, called C3SR format which is based on the CSR format, tailored to maximize the arithmetic performance of matrix-vector multiplication involving sparse banded matrices. Its arithmetic performance is compared against the CSR format using two arithmetic schemes, a CSR-like scheme and a vectorized SIMD scheme on multiple machines displaying large speed-ups due to improved data locality.
+  Matrix-vector multiplication with sparse banded matrices derived from a structured grid is ubiquitously used for physical simulations in many scientific fields. Implementing the arithmetic using a general purpose sparse matrix format, such as the widely used CSR format, however, yields suboptimal results as the inherent structure of such matrices cannot be exploited by these formats in order to improve the arithmetic performance. This report presents a new sparse matrix storage format, the \emph{threefold compressed sparse row format} (C3SR) which is based on the CSR format, tailored to maximize the arithmetic performance of matrix-vector multiplication involving aforementioned matrices. Its arithmetic performance is compared against the CSR format using two arithmetic schemes, a CSR-like scheme and a vectorized SIMD scheme on multiple machines displaying large speed-ups due to improved data locality.
 \end{abstract}
 
 \end{minipage}
@@ -539,7 +539,7 @@
     \begin{figure}[!ht]
       \centering
       \includegraphics[width=0.9\textwidth]{assets/eigen_vs_c3sr_baseline}
-      \caption[Performance comparison of the CSR format against the C3SR format on sparse banded matrices.]{\textbf{Performance comparison of the CSR format against the C3SR format on sparse banded matrices.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. As the CSR format's representation of the different matrices is identical except for differing numeric values the arithmetic performance is the same save for statistical variance. The triangular symbols denote the theoretical limits as determined by the quotient of the total amount of data involved in a matrix-vector multiplication and the system's theoretical memory bandwidth.}
+      \caption[Performance comparison of the CSR format against the C3SR format on sparse banded matrices.]{\textbf{Performance comparison of the CSR format against the C3SR format on sparse banded matrices.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. As the CSR format's representation of the different matrices is identical except for differing numeric values the arithmetic performance is the same save for statistical variance. The triangular symbols denote the theoretical limits as determined by the quotient of the total amount of data involved in a matrix-vector multiplication and the system's theoretical memory bandwidth. Since the matrix storage sizes differ between the storage formats two different limits are displayed.}
       \label{fig:baseline_arithmetic_performance}
     \end{figure}
 
@@ -554,7 +554,7 @@
     \begin{figure}[!ht]
       \centering
       \includegraphics[width=0.9\textwidth]{assets/arithmetic_performance}
-      \caption[Performance of C3SR vectorized matrix-vector multiplication scheme compared to baseline implementation.]{\textbf{Performance of C3SR vectorized matrix-vector multiplication scheme compared to baseline implementation.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown.}
+      \caption[Performance of C3SR vectorized matrix-vector multiplication scheme compared to baseline implementation.]{\textbf{Performance of C3SR vectorized matrix-vector multiplication scheme compared to baseline implementation.} The means and sample standard deviations of $10$ samples à $10000$ consecutive matrix-vector multiplications are shown. The triangular symbols denote the theoretical limits as determined by the quotient of the total amount of data involved in a matrix-vector multiplication and the system's theoretical memory bandwidth.}
       \label{fig:arithmetic-performance}
     \end{figure}
 
